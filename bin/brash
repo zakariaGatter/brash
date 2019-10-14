@@ -1,0 +1,255 @@
+#!/bin/bash
+
+#-------------#
+# SCRIPT NAME #
+#-------------#{{{
+# Get the script name even if u change it
+_name_=${0##*/}
+#}}}
+
+#----------------#
+# TARSH LOCATION #
+#----------------#{{{
+# get Trash variable from Devices
+while read -r d ; do
+
+	# ignore system partition
+	read -ra U < <(blkid $d)
+
+	# check if the partition mounted
+	read -ra D < <(lsblk -ln -o mountpoint $d)
+
+	# get partition UUID
+	eval "${U[1]}"
+
+	# if UUID empty its a external disk or a usb
+	[ -z "$UUID" ] || {
+
+		# if can find UUID id not a system Partititon
+		# and check if its mounted
+		[ -z "$(grep "$UUID" /etc/fstab)" -a -n "${D}" ] && {
+			case "$PWD" in
+				${D}* )
+						_TRASH_="$D"
+					;;
+			esac
+		}
+	}
+done < <(\ls /dev/sd[a-z][1-9])
+#}}}
+
+#---------------#
+# TRASH FOLDERS #
+#---------------#{{{
+_TRASH_=${_TRASH_:=$HOME/.local/share/Trash}
+_TFILES_="$_TRASH_/files"
+_TINFO_="$_TRASH_/info"
+#}}}
+
+#------------------#
+# MAKE TRASH FILES #
+#------------------#{{{
+_mk_trash_(){
+	[ -d "$_TFILES_" ] || \mkdir -p "$_TFILES_"
+	[ -d "$_TINFO_" ] || \mkdir -p "$_TINFO_"
+}
+#}}}
+
+#-------------#
+# REMOVE FILE #
+#-------------#{{{
+_remove_(){
+local i I
+
+for i in "${_list_[@]:$_all_}" ; do
+	local _file_=${i}
+	local _path_=$(realpath "$_file_")
+	local _file_name_=${_path_##*/}
+	local _file_path_=${_path_%/*}
+
+	# check if there is any file with the same name
+	for I in $_TFILES_/${_file_name_}_{1..100}; do
+		[ -e "$_TFILES_/${I##*/}" ] && local _file_double_="${I##*/}"
+	done
+
+	[ -z "$_file_double_" ] || local _d_="true"
+
+	# make file with numbers
+	if [ -e "$_TFILES_/$_file_double_" -a "$_d_" = "true" ]; then
+		local _num_=${_file_double_##*_}
+		((_num_++))
+		_file_name_="${_file_double_%_*}_${_num_}"
+	elif [ -e "$_TFILES_/$_file_name_" ]; then
+		_file_name_="${_file_name_}_1"
+	fi
+
+	if [ -e "$_file_" ]; then
+		\mv -f "$_file_" "$_TFILES_/$_file_name_" &&  echo -e "[Trash Info]\nDeletionDate=$(date +%Y-%m-%dT%H:%M:%S)\nPATH=$_file_path_/$_file_name_" > "$_TINFO_/$_file_name_.trashinfo"
+		[ "$_VERBOSE_" = "true" -a "$?" -eq "0" ] && echo -e "$_file_ -D-> Deleted"
+	else
+		echo -e "$_file_ : No such file or Directory."
+	fi
+done
+}
+#}}}
+
+#------------#
+# LIST FILES #
+#------------#{{{
+_list_(){
+(\ls $_TINFO_/* &> /dev/null) || {
+	echo -e "$_name_ : Trash Empty"
+	return 0
+}
+
+for i in $_TINFO_/* ; do
+	local _file_=$(awk -F = '/^PATH=/{print $2}' $i)
+	local _date_=$(awk -F = '/^DeletionDate=/{sub("T"," ",$2); print $2}' $i)
+
+	echo -e "$_file_ , -L-> $_date_"
+done | column -t -s ,
+}
+#}}}
+
+#-------------#
+# CLEAN TRASH #
+#-------------#{{{
+_clean_(){
+(\ls $_TINFO_/* &> /dev/null) || {
+	echo -e "$_name_ : Trash Already Empty"
+	return 0
+}
+
+echo -e "$_name_ : Clean Trash Info files"
+echo -e "$_name_ : Clean Trash files"
+\rm -rf $_TINFO_/*  && \rm -rf $_TFILES_/*
+}
+#}}}
+
+#------------------------------#
+# LIST FILES FOR BRASH RETORE  #
+#------------------------------#{{{
+_list_files_(){
+for i in $_TINFO_/* ; do
+	local _file_=$(awk -F = '/^PATH=/{print $2}' $i)
+	local _date_=$(awk -F = '/^DeletionDate=/{sub("T"," ",$2); print $2}' $i)
+	i=${i##*/}
+	echo -en "'${i%%.*}' '$_file_ $_date_' OFF "
+done
+}
+#}}}
+
+#--------------#
+# RESTORE FILE #
+#--------------#{{{
+_restore_(){
+(\ls $_TINFO_/* &> /dev/null) || {
+	echo -e "$_name_ : Trash Already Empty"
+	return 0
+}
+
+read LINES COLUMNS < <(stty size)
+
+[ -z "$1" ] && {
+	DIALOG_TTY=1
+	_RF_=$(eval "dialog --stdout --title 'Brash Restore' --checklist 'Pick Files (Accept Multiple) :' $LINES $COLUMNS $(($LINES - 8)) $(_list_files_)")
+} || {
+	_RF_="${_list_[@]:$_all_}"
+}
+
+[ -n "$_RF_" ] && {
+	for i in ${_RF_[@]}; do
+		local _file_=$(awk -F = '/^PATH=/{print $2}' $_TINFO_/$i.trashinfo)
+
+		test -f "$_file_" && _file_="$_file_.old"
+
+		\mv -fi $_TFILES_/$i $_file_ && \rm -f $_TINFO_/$i.trashinfo
+
+		[ "$_VERBOSE_" = "true" ] && echo -e "$i -R-> $_file_"
+	done
+}
+}
+#}}}
+
+#-------------#
+# HELP DIALOG #
+#-------------#{{{
+_help_(){
+echo -e "
+${_name_^^} (0.2)
+Write by Zakaria Gatter (zakaria.gatter@gmail.com)
+
+Cli Trash Manager in bure Bash
+
+$_name_ [OPTS] [FILES]
+
+OPTS :
+	-d | --delete  : Delete File and Directories
+	-c | --clean   : Clean Trash Files and Infos
+	-l | --list    : List Trash Files
+	-r | --restore : Restore Files from trash
+
+NOTE :
+	- File or Dirs Start with '-' can not be removed (Working on it)
+"
+}
+#}}}
+
+#---------------#
+# MAIN FUNCTION #
+#---------------#{{{
+_main_(){
+case "$1" in
+	-d|--delete )
+		_mk_trash_
+		_REMOVE_="true"
+		[ "$2" = "-v" -o "$2" = "--verbose" ] && {
+			_VERBOSE_="true"
+			_all_="2"
+		} || {
+			_all_="1"
+		}
+		;;
+	-l|--list )
+		_LIST_="true"
+		;;
+	-c|--clean )
+		_CLEAN_="true"
+		;;
+	-r|--restore )
+		_RESTORE_="true"
+		[ "$2" = "-v" -o "$2" = "--verbose" ] && {
+			_VERBOSE_="true"
+			_all_="2"
+		} || {
+			_all_="1"
+		}
+		;;
+	-h|--help )
+		_help_
+		;;
+	* )
+		echo -e "$_name_ : invalide argument, please see (-h|--help) for more information"
+		exit 1
+		;;
+esac
+}
+#}}}
+
+#-------------------#
+# RUN MAIN FUNCTION #
+#-------------------#{{{
+# this the only way i font to deal with spaces inside filename
+for i in "$@"; { _list_+=( "$i" ) ;}
+_main_ $@
+#}}}
+
+#---------------#
+# DETECT ERRORS #
+#---------------#{{{
+[ "$_REMOVE_" = "true" ] && _remove_
+[ "$_LIST_" = "true" ] && _list_
+[ "$_CLEAN_" = "true" ] && _clean_
+[ "$_RESTORE_" = "true" ] && _restore_
+#}}}
+
