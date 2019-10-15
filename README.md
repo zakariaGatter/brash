@@ -46,21 +46,21 @@
 ## Using Brash
 
 ```
-	BRASH (0.2)
-	Write by Zakaria Gatter (zakaria.gatter@gmail.com)
+BRASH (0.2)
+Cli Trash Manager in bure Bash
 
-	Cli Trash Manager in bure Bash
+brash [OPTS] [FILES]
 
-	brash [OPTS] [FILES]
+OPTS :
+  -d | --delete  : Delete File and Directories
+  -c | --clean   : Clean Trash Files and Infos
+  -l | --list    : List Trash Files
+  -r | --restore : Restore Files from trash
+  -v | --verbose : Verboe messages
+  -h | --help    : Print help usage
 
-	OPTS :
-		-d | --delete  : Delete Files and Directories
-		-c | --clean   : Clean Trash Files and Infos
-		-l | --list    : List Trash Files
-		-r | --restore : Restore Files from trash
-
-	NOTE :
-		- File or Dirs Start with '-' can not be removed (Working on it)
+NOTE :
+	- File or Dirs Start with '-' can not be removed (Working on it)
 ```
 
 ## TODO

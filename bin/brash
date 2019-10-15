@@ -68,7 +68,7 @@ for i in "${_list_[@]:$_all_}" ; do
 	local _file_path_=${_path_%/*}
 
 	# check if there is any file with the same name
-	for I in $_TFILES_/${_file_name_}_{1..100}; do
+	for I in $_TFILES_/${_file_name_}.{1..100}; do
 		[ -e "$_TFILES_/${I##*/}" ] && local _file_double_="${I##*/}"
 	done
 
@@ -78,13 +78,14 @@ for i in "${_list_[@]:$_all_}" ; do
 	if [ -e "$_TFILES_/$_file_double_" -a "$_d_" = "true" ]; then
 		local _num_=${_file_double_##*_}
 		((_num_++))
-		_file_name_="${_file_double_%_*}_${_num_}"
+		_file_name_="${_file_double_%_*}.${_num_}"
 	elif [ -e "$_TFILES_/$_file_name_" ]; then
-		_file_name_="${_file_name_}_1"
+		_file_name_="${_file_name_}.1"
 	fi
 
 	if [ -e "$_file_" ]; then
-		\mv -f "$_file_" "$_TFILES_/$_file_name_" &&  echo -e "[Trash Info]\nDeletionDate=$(date +%Y-%m-%dT%H:%M:%S)\nPATH=$_file_path_/$_file_name_" > "$_TINFO_/$_file_name_.trashinfo"
+		\mv -f "$_file_" "$_TFILES_/$_file_name_" && \
+			echo -e "[Trash Info]\nDeletionDate=$(date +%Y-%m-%dT%H:%M:%S)\nPATH=$_file_path_/$_file_name_" > "$_TINFO_/$_file_name_.trashinfo"
 		[ "$_VERBOSE_" = "true" -a "$?" -eq "0" ] && echo -e "$_file_ -D-> Deleted"
 	else
 		echo -e "$_file_ : No such file or Directory."
@@ -177,17 +178,17 @@ read LINES COLUMNS < <(stty size)
 _help_(){
 echo -e "
 ${_name_^^} (0.2)
-Write by Zakaria Gatter (zakaria.gatter@gmail.com)
-
 Cli Trash Manager in bure Bash
 
 $_name_ [OPTS] [FILES]
 
 OPTS :
-	-d | --delete  : Delete File and Directories
-	-c | --clean   : Clean Trash Files and Infos
-	-l | --list    : List Trash Files
-	-r | --restore : Restore Files from trash
+  -d | --delete  : Delete File and Directories
+  -c | --clean   : Clean Trash Files and Infos
+  -l | --list    : List Trash Files
+  -r | --restore : Restore Files from trash
+  -v | --verbose : Verboe messages
+  -h | --help    : Print help usage
 
 NOTE :
 	- File or Dirs Start with '-' can not be removed (Working on it)
@@ -239,7 +240,7 @@ esac
 #-------------------#
 # RUN MAIN FUNCTION #
 #-------------------#{{{
-# this the only way i font to deal with spaces inside filename
+# this the only way i found to deal with spaces inside filename
 for i in "$@"; { _list_+=( "$i" ) ;}
 _main_ $@
 #}}}
