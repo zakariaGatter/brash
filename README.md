@@ -17,15 +17,15 @@
 * Delete files and folders
 * List out Trash contant
 * Clean Trash
-* Restore file from trash
-* Nice progress viewer of what happend
+* Restore files from trash
+* Nice progress viewer of what happened
 
-[Brash] automatically...
+[Brash] can automatically...
 
-* Rename exist file when Delete or Restore files
-* Create a trash Folder in Removele Devices
+* Rename existing files during Delete or Restore
+* Create a trash Folder in Removabele Devices
 
-[Brash] is undergoing an interface change, please stay up to date to get latest changes.
+[Brash] is undergoing an interface change, please stay up to date to get the latest changes.
 
 ## Quick Start
 
@@ -56,7 +56,7 @@ OPTS :
   -c | --clean   : Clean Trash Files and Infos
   -l | --list    : List Trash Files
   -r | --restore : Restore Files from trash
-  -v | --verbose : Verboe messages
+  -v | --verbose : Verbose messages
   -h | --help    : Print help usage
 
 NOTE :
