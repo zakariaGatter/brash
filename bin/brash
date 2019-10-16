@@ -30,7 +30,7 @@ while read -r d ; do
 		[ -z "$(grep "$UUID" /etc/fstab)" -a -n "${D}" ] && {
 			case "$PWD" in
 				${D}* )
-						_TRASH_="$D"
+						_TRASH_="$D/.Trash"
 					;;
 			esac
 		}
@@ -56,6 +56,12 @@ _mk_trash_(){
 #}}}
 
 #-------------#
+# MSG DIALOG  #
+#-------------#{{{
+_msg_(){ ( >&2 printf "%s\n" "$1" ) ;}
+#}}}
+
+#-------------#
 # REMOVE FILE #
 #-------------#{{{
 _remove_(){
@@ -66,6 +72,10 @@ for i in "${_list_[@]:$_all_}" ; do
 	local _path_=$(realpath "$_file_")
 	local _file_name_=${_path_##*/}
 	local _file_path_=${_path_%/*}
+    local size
+
+    # get file size
+    read -a size < <(du -hc "$_file_")
 
 	# check if there is any file with the same name
 	for I in $_TFILES_/${_file_name_}.{1..100}; do
@@ -84,11 +94,19 @@ for i in "${_list_[@]:$_all_}" ; do
 	fi
 
 	if [ -e "$_file_" ]; then
-		\mv -f "$_file_" "$_TFILES_/$_file_name_" && \
-			echo -e "[Trash Info]\nDeletionDate=$(date +%Y-%m-%dT%H:%M:%S)\nPATH=$_file_path_/$_file_name_" > "$_TINFO_/$_file_name_.trashinfo"
-		[ "$_VERBOSE_" = "true" -a "$?" -eq "0" ] && echo -e "$_file_ -D-> Deleted"
+        ( \mv -fi "$_file_" "$_TFILES_/$_file_name_" ) && {
+            printf "[Trash Info]\n"                   > "$_TINFO_/$_file_name_.trashinfo"
+            printf "DeletionDate=%(%F)TT%(%T)T\n"     >> "$_TINFO_/$_file_name_.trashinfo"
+            printf "PATH=%s\n" "$_file_path_/$_file_" >> "$_TINFO_/$_file_name_.trashinfo"
+        } || {
+            _msg_ "${_name_^} Delele [ERROR] '$_file_'"
+            exit 2
+        }
+
+		[ "$_VERBOSE_" = "true" -a "$?" -eq "0" ] && _msg_ "${_name_^} Del [$size] '$_file_'"
 	else
-		echo -e "$_file_ : No such file or Directory."
+		_msg_ "${_name_^}: $_file_: No such file or Directory."
+        exit 2
 	fi
 done
 }
@@ -99,16 +117,16 @@ done
 #------------#{{{
 _list_(){
 (\ls $_TINFO_/* &> /dev/null) || {
-	echo -e "$_name_ : Trash Empty"
-	return 0
+	_msg_ "${_name_^}: Trash [EMPTY]"
+   exit 2
 }
 
 for i in $_TINFO_/* ; do
-	local _file_=$(awk -F = '/^PATH=/{print $2}' $i)
-	local _date_=$(awk -F = '/^DeletionDate=/{sub("T"," ",$2); print $2}' $i)
+	local _file_=$(awk -F = '/^PATH=/{print $2}' "$i")
+	local _date_=$(awk -F = '/^DeletionDate=/{sub("T"," ",$2); print $2}' "$i")
 
-	echo -e "$_file_ , -L-> $_date_"
-done | column -t -s ,
+    _msg_ "${_name_^} List [$_date_] '$_file_'"
+done
 }
 #}}}
 
@@ -117,13 +135,16 @@ done | column -t -s ,
 #-------------#{{{
 _clean_(){
 (\ls $_TINFO_/* &> /dev/null) || {
-	echo -e "$_name_ : Trash Already Empty"
-	return 0
+    _msg_ "${_name_^}: Trash [EMPTY]"
+   exit 2
 }
 
-echo -e "$_name_ : Clean Trash Info files"
-echo -e "$_name_ : Clean Trash files"
-\rm -rf $_TINFO_/*  && \rm -rf $_TFILES_/*
+_msg_ "${_name_^}: Clean [INFO]"
+\rm -rf $_TINFO_/*
+
+_msg_ "${_name_^}: Clean [FILE]"
+\rm -rf $_TFILES_/*
+
 }
 #}}}
 
@@ -132,10 +153,10 @@ echo -e "$_name_ : Clean Trash files"
 #------------------------------#{{{
 _list_files_(){
 for i in $_TINFO_/* ; do
-	local _file_=$(awk -F = '/^PATH=/{print $2}' $i)
-	local _date_=$(awk -F = '/^DeletionDate=/{sub("T"," ",$2); print $2}' $i)
+	local _file_=$(awk -F = '/^PATH=/{print $2}' "$i")
+	local _date_=$(awk -F = '/^DeletionDate=/{sub("T"," ",$2); print $2}' "$i")
 	i=${i##*/}
-	echo -en "'${i%%.*}' '$_file_ $_date_' OFF "
+    printf "'%s' '%s' OFF " "${i%.*}" "$_file_ $_date_"
 done
 }
 #}}}
@@ -145,8 +166,8 @@ done
 #--------------#{{{
 _restore_(){
 (\ls $_TINFO_/* &> /dev/null) || {
-	echo -e "$_name_ : Trash Already Empty"
-	return 0
+    _msg_ "${_name_^}: Trash [EMPTY]"
+   exit 2
 }
 
 read LINES COLUMNS < <(stty size)
@@ -160,25 +181,37 @@ read LINES COLUMNS < <(stty size)
 
 [ -n "$_RF_" ] && {
 	for i in ${_RF_[@]}; do
-		local _file_=$(awk -F = '/^PATH=/{print $2}' $_TINFO_/$i.trashinfo)
+		local _file_=$(awk -F = '/^PATH=/{print $2}' "$_TINFO_/$i.trashinfo")
 
 		test -f "$_file_" && _file_="$_file_.old"
 
-		\mv -fi $_TFILES_/$i $_file_ && \rm -f $_TINFO_/$i.trashinfo
+		\mv -fi "$_TFILES_/$i $_file_" && \rm -f "$_TINFO_/$i.trashinfo"
 
-		[ "$_VERBOSE_" = "true" ] && echo -e "$i -R-> $_file_"
+		[ "$_VERBOSE_" = "true" ] && _msg_ "${_name_^} Restore '$_file_'"
 	done
 }
 }
 #}}}
 
 #-------------#
+# TRASH SIZE  #
+#-------------#
+_size_(){
+    local size count
+
+    read size < <(\du -hc "$_TRASH_"/* | awk '/total$/{print $1}')
+    read count < <(\ls -1 "$_TRASH_"/* | wc -l)
+
+    _msg_ "${_name_^} Size [$size], Files [$count]"
+}
+
+
+#-------------#
 # HELP DIALOG #
 #-------------#{{{
 _help_(){
-echo -e "
-${_name_^^} (0.2)
-Cli Trash Manager in bure Bash
+cat <<- HELP
+${_name_^^} Cli Trash Manager in bure Bash
 
 $_name_ [OPTS] [FILES]
 
@@ -187,12 +220,13 @@ OPTS :
   -c | --clean   : Clean Trash Files and Infos
   -l | --list    : List Trash Files
   -r | --restore : Restore Files from trash
+  -s | --size    : Trash Size
   -v | --verbose : Verboe messages
   -h | --help    : Print help usage
 
 NOTE :
 	- File or Dirs Start with '-' can not be removed (Working on it)
-"
+HELP
 }
 #}}}
 
@@ -205,8 +239,7 @@ case "$1" in
 		_mk_trash_
 		_REMOVE_="true"
 		[ "$2" = "-v" -o "$2" = "--verbose" ] && {
-			_VERBOSE_="true"
-			_all_="2"
+			_VERBOSE_="true" _all_="2"
 		} || {
 			_all_="1"
 		}
@@ -220,17 +253,19 @@ case "$1" in
 	-r|--restore )
 		_RESTORE_="true"
 		[ "$2" = "-v" -o "$2" = "--verbose" ] && {
-			_VERBOSE_="true"
-			_all_="2"
+			_VERBOSE_="true" _all_="2"
 		} || {
 			_all_="1"
 		}
 		;;
+    -s|--size )
+        _SIZE_="true"
+        ;;
 	-h|--help )
 		_help_
 		;;
 	* )
-		echo -e "$_name_ : invalide argument, please see (-h|--help) for more information"
+		_msg_ "${_name_^}: invalide argument, please see (-h|--help) for more information"
 		exit 1
 		;;
 esac
@@ -248,9 +283,10 @@ _main_ $@
 #---------------#
 # DETECT ERRORS #
 #---------------#{{{
-[ "$_REMOVE_" = "true" ] && _remove_
-[ "$_LIST_" = "true" ] && _list_
-[ "$_CLEAN_" = "true" ] && _clean_
-[ "$_RESTORE_" = "true" ] && _restore_
+[ -n "$_REMOVE_" ]  && _remove_
+[ -n "$_LIST_" ]    && _list_
+[ -n "$_CLEAN_" ]   && _clean_
+[ -n "$_RESTORE_" ] && _restore_
+[ -n "$_SIZE_" ]    && _size_
 #}}}
 

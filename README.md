@@ -3,12 +3,12 @@
 ## Table of Contents
 
 - [About](#about)
+- [Why Brash](#why_brash)
 - [Quick Start](#quick-start)
-- [Using Brash](#using-zshing)
+- [Using Brash](#using-brash)
 - [TODO](#todo)
 
 ## About
-
 
 [Brash] Cli Trash Manager full in Bash
 
@@ -42,6 +42,10 @@
 	cp ~/brash/bin/brash ~/.local/bin
 	chmod +x ~/.local/bin/brash
 	```
+
+## Why Brash
+
+:
 
 ## Using Brash
 
