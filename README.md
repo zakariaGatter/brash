@@ -23,7 +23,7 @@
 [Brash] can automatically...
 
 * Rename existing files during Delete or Restore
-* Create a trash Folder in Removabele Devices
+* Create a trash Folder in Removable Devices
 
 [Brash] is undergoing an interface change, please stay up to date to get the latest changes.
 
@@ -45,13 +45,14 @@
 
 ## Why Brash
 
-:
+Well, why not. As you see its similar to [Trash_cli](https://github.com/andreafrancia/trash-cli). Unlike Trash_cli, [Brash] don't Depends on any Python libs just pure bash.
+
+So why not ?
 
 ## Using Brash
 
 ```
-BRASH (0.2)
-Cli Trash Manager in bure Bash
+BRASH Cli Trash Manager in bure Bash
 
 brash [OPTS] [FILES]
 
@@ -60,11 +61,12 @@ OPTS :
   -c | --clean   : Clean Trash Files and Infos
   -l | --list    : List Trash Files
   -r | --restore : Restore Files from trash
+  -s | --size    : Trash Size
   -v | --verbose : Verbose messages
   -h | --help    : Print help usage
 
 NOTE :
-	- File or Dirs Start with '-' can not be removed (Working on it)
+  - File or Dirs Start with '-' can not be removed (Working on it)
 ```
 
 ## TODO
