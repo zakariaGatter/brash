@@ -72,26 +72,20 @@ for i in "${_list_[@]:$_all_}" ; do
 	local _path_=$(realpath "$_file_")
 	local _file_name_=${_path_##*/}
 	local _file_path_=${_path_%/*}
-    local size
+    local size count
 
     # get file size
     read -a size < <(du -hc "$_file_")
 
-	# check if there is any file with the same name
-	for I in $_TFILES_/${_file_name_}.{1..100}; do
-		[ -e "$_TFILES_/${I##*/}" ] && local _file_double_="${I##*/}"
-	done
+    # get count if there is any double
+    read count < <(ls $_TFILES_/${_file_name_}* 2> /dev/null | sort -V | awk -F '[()]' '{line=$2}END{print line}')
 
-	[ -z "$_file_double_" ] || local _d_="true"
-
-	# make file with numbers
-	if [ -e "$_TFILES_/$_file_double_" -a "$_d_" = "true" ]; then
-		local _num_=${_file_double_##*_}
-		((_num_++))
-		_file_name_="${_file_double_%_*}.${_num_}"
-	elif [ -e "$_TFILES_/$_file_name_" ]; then
-		_file_name_="${_file_name_}.1"
-	fi
+    [ -n "$count" ] && {
+        ((count++))
+        _file_name_="${_file_name_}(${count})"
+    } || {
+        [ -e "$_TFILES_/$_file_name_" ] && _file_name_="${_file_name_}(1)"
+    }
 
 	if [ -e "$_file_" ]; then
         ( \mv -fi "$_file_" "$_TFILES_/$_file_name_" ) && {
@@ -183,9 +177,9 @@ read LINES COLUMNS < <(stty size)
 	for i in ${_RF_[@]}; do
 		local _file_=$(awk -F = '/^PATH=/{print $2}' "$_TINFO_/$i.trashinfo")
 
-		test -f "$_file_" && _file_="$_file_.old"
+        test -f "$_file_" && _file_="${_file_}(1)"
 
-		\mv -fi "$_TFILES_/$i $_file_" && \rm -f "$_TINFO_/$i.trashinfo"
+		\mv -fi "$_TFILES_/$i" "$_file_" && \rm -f "$_TINFO_/$i.trashinfo"
 
 		[ "$_VERBOSE_" = "true" ] && _msg_ "${_name_^} Restore '$_file_'"
 	done
@@ -195,7 +189,7 @@ read LINES COLUMNS < <(stty size)
 
 #-------------#
 # TRASH SIZE  #
-#-------------#
+#-------------#{{{
 _size_(){
     local size count
 
@@ -204,7 +198,7 @@ _size_(){
 
     _msg_ "${_name_^} Size [$size], Files [$count]"
 }
-
+#}}}
 
 #-------------#
 # HELP DIALOG #
