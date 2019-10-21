@@ -234,9 +234,6 @@ OPTS :
   -s | --size    : Trash Size
   -v | --verbose : Verboe messages
   -h | --help    : Print help usage
-
-NOTE :
-	- File or Dirs Start with '-' can not be removed (Working on it)
 HELP
 }
 #}}}

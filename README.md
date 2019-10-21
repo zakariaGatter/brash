@@ -65,8 +65,6 @@ OPTS :
   -v | --verbose : Verbose messages
   -h | --help    : Print help usage
 
-NOTE :
-  - File or Dirs Start with '-' can not be removed (Working on it)
 ```
 
 ## TODO
