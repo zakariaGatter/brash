@@ -14,7 +14,7 @@
 
 [Brash] allows you to...
 
-* Delete files and folders
+* Delete files and folders, even the ones start with "-"
 * List out Trash contant
 * Clean Trash
 * Restore files from trash
@@ -76,7 +76,7 @@ NOTE :
 * [X] Restore all deleted files
 * [X] List all Deleted files
 * [X] Clean all Trash file and info
-* [ ] Remove file with '-'
+* [X] Remove file with '-'
 
 
 [Brash]:http://gitlab.com/zakariagatter/brash

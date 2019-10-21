@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+#--------#
+# DEBUG  #
+#--------#{{{
+#set -xv
+#}}}
+
 #-------------#
 # SCRIPT NAME #
 #-------------#{{{
@@ -27,7 +33,7 @@ while read -r d ; do
 
 		# if can find UUID id not a system Partititon
 		# and check if its mounted
-		[ -z "$(grep "$UUID" /etc/fstab)" -a -n "${D}" ] && {
+		[ -z "$(grep "$UUID" /etc/fstab)" ] && [ "${D}" ] && {
 			case "$PWD" in
 				${D}* )
 						_TRASH_="$D/.Trash"
@@ -35,7 +41,7 @@ while read -r d ; do
 			esac
 		}
 	}
-done < <(\ls /dev/sd[a-z][1-9])
+done < <(\ls -1 /dev/sd[a-z][1-9])
 #}}}
 
 #---------------#
@@ -69,18 +75,18 @@ local i I
 
 for i in "${_list_[@]:$_all_}" ; do
 	local _file_=${i}
-	local _path_=$(realpath "$_file_")
+	local _path_=$(realpath -- "$_file_" 2> /dev/null)
 	local _file_name_=${_path_##*/}
 	local _file_path_=${_path_%/*}
     local size count
 
     # get file size
-    read -a size < <(du -hc "$_file_")
+    read -a size < <(\du -hc "$_file_")
 
     # get count if there is any double
-    read count < <(ls $_TFILES_/${_file_name_}* 2> /dev/null | sort -V | awk -F '[()]' '{line=$2}END{print line}')
+    read count < <(\ls -1 $_TFILES_/${_file_name_}* 2> /dev/null | sort -V | awk -F '[()]' '{line=$2}END{print line}')
 
-    [ -n "$count" ] && {
+    [ "$count" ] && {
         ((count++))
         _file_name_="${_file_name_}(${count})"
     } || {
@@ -88,8 +94,13 @@ for i in "${_list_[@]:$_all_}" ; do
     }
 
 	if [ -e "$_file_" ]; then
-        ( \mv -fi "$_file_" "$_TFILES_/$_file_name_" ) && {
-            printf "[Trash Info]\n"                   > "$_TINFO_/$_file_name_.trashinfo"
+        test -w "$_file_" || {
+            _msg_ "${_name_^} Delete '$_file_' Permission denied"
+            exit 2
+        }
+
+        ( \mv -f -- "$_file_" "$_TFILES_/$_file_name_" 2> /dev/null ) && {
+            printf "[Trash Info]\n"                    > "$_TINFO_/$_file_name_.trashinfo"
             printf "DeletionDate=%(%F)TT%(%T)T\n"     >> "$_TINFO_/$_file_name_.trashinfo"
             printf "PATH=%s\n" "$_file_path_/$_file_" >> "$_TINFO_/$_file_name_.trashinfo"
         } || {
@@ -97,7 +108,7 @@ for i in "${_list_[@]:$_all_}" ; do
             exit 2
         }
 
-		[ "$_VERBOSE_" = "true" -a "$?" -eq "0" ] && _msg_ "${_name_^} Del [$size] '$_file_'"
+		[ "$_VERBOSE_" = "true" ] && _msg_ "${_name_^} Delete [$size] '$_file_'"
 	else
 		_msg_ "${_name_^}: $_file_: No such file or Directory."
         exit 2
@@ -134,10 +145,10 @@ _clean_(){
 }
 
 _msg_ "${_name_^}: Clean [INFO]"
-\rm -rf $_TINFO_/*
+\rm -rf -- $_TINFO_/*
 
 _msg_ "${_name_^}: Clean [FILE]"
-\rm -rf $_TFILES_/*
+\rm -rf -- $_TFILES_/*
 
 }
 #}}}
@@ -166,20 +177,26 @@ _restore_(){
 
 read LINES COLUMNS < <(stty size)
 
-[ -z "$1" ] && {
+_RF_="${_list_[@]:$_all_}"
+
+[ -z "$_RF_" ] && {
 	DIALOG_TTY=1
 	_RF_=$(eval "dialog --stdout --title 'Brash Restore' --checklist 'Pick Files (Accept Multiple) :' $LINES $COLUMNS $(($LINES - 8)) $(_list_files_)")
-} || {
-	_RF_="${_list_[@]:$_all_}"
 }
 
-[ -n "$_RF_" ] && {
+[ "$_RF_" ] && {
 	for i in ${_RF_[@]}; do
 		local _file_=$(awk -F = '/^PATH=/{print $2}' "$_TINFO_/$i.trashinfo")
 
+        test -w "$_TINFO_/$i" || {
+            _msg_ "${_name_^} Restore '$_file_' Permission denied"
+            exit 2
+        }
+
         test -f "$_file_" && _file_="${_file_}(1)"
 
-		\mv -fi "$_TFILES_/$i" "$_file_" && \rm -f "$_TINFO_/$i.trashinfo"
+		\mv -f -- "$_TFILES_/$i" "$_file_" 2> /dev/null
+        \rm -f -- "$_TINFO_/$i.trashinfo"  2> /dev/null
 
 		[ "$_VERBOSE_" = "true" ] && _msg_ "${_name_^} Restore '$_file_'"
 	done
@@ -259,7 +276,7 @@ case "$1" in
 		_help_
 		;;
 	* )
-		_msg_ "${_name_^}: invalide argument, please see (-h|--help) for more information"
+		_msg_ "${_name_^}: $1 invalide argument, please see (-h|--help) for more information"
 		exit 1
 		;;
 esac
@@ -277,10 +294,10 @@ _main_ $@
 #---------------#
 # DETECT ERRORS #
 #---------------#{{{
-[ -n "$_REMOVE_" ]  && _remove_
-[ -n "$_LIST_" ]    && _list_
-[ -n "$_CLEAN_" ]   && _clean_
-[ -n "$_RESTORE_" ] && _restore_
-[ -n "$_SIZE_" ]    && _size_
+[ "$_REMOVE_" ]  && _remove_
+[ "$_LIST_" ]    && _list_
+[ "$_CLEAN_" ]   && _clean_
+[ "$_RESTORE_" ] && _restore_
+[ "$_SIZE_" ]    && _size_
 #}}}
 
