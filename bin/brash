@@ -19,7 +19,7 @@ _name_=${0##*/}
 # get Trash variable from Devices
 while read -r d ; do
 
-	# ignore system partition
+	# get partition
 	read -ra U < <(blkid $d)
 
 	# check if the partition mounted
@@ -29,14 +29,13 @@ while read -r d ; do
 	eval "${U[1]}"
 
 	# if UUID empty its a external disk or a usb
-	[ -z "$UUID" ] || {
-
+	[ "$UUID" ] && {
 		# if can find UUID id not a system Partititon
 		# and check if its mounted
 		[ -z "$(grep "$UUID" /etc/fstab)" ] && [ "${D}" ] && {
 			case "$PWD" in
 				${D}* )
-						_TRASH_="$D/.Trash"
+                    _TRASH_="$D/.Trash"
 					;;
 			esac
 		}
@@ -108,7 +107,7 @@ for i in "${_list_[@]:$_all_}" ; do
             exit 2
         }
 
-		[ "$_VERBOSE_" = "true" ] && _msg_ "${_name_^} Delete [$size] '$_file_'"
+		[ "$_VERBOSE_" ] && _msg_ "${_name_^} Delete [$size] '$_file_'"
 	else
 		_msg_ "${_name_^}: $_file_: No such file or Directory."
         exit 2
@@ -121,10 +120,7 @@ done
 # LIST FILES #
 #------------#{{{
 _list_(){
-(\ls $_TINFO_/* &> /dev/null) || {
-	_msg_ "${_name_^}: Trash [EMPTY]"
-   exit 2
-}
+(\ls $_TINFO_/* &> /dev/null) || { _msg_ "${_name_^}: Trash [EMPTY]" && exit 2 ;}
 
 for i in $_TINFO_/* ; do
 	local _file_=$(awk -F = '/^PATH=/{print $2}' "$i")
@@ -139,10 +135,7 @@ done
 # CLEAN TRASH #
 #-------------#{{{
 _clean_(){
-(\ls $_TINFO_/* &> /dev/null) || {
-    _msg_ "${_name_^}: Trash [EMPTY]"
-   exit 2
-}
+(\ls $_TINFO_/* &> /dev/null) || { _msg_ "${_name_^}: Trash [EMPTY]" && exit 2 ;}
 
 _msg_ "${_name_^}: Clean [INFO]"
 \rm -rf -- $_TINFO_/*
@@ -170,16 +163,13 @@ done
 # RESTORE FILE #
 #--------------#{{{
 _restore_(){
-(\ls $_TINFO_/* &> /dev/null) || {
-    _msg_ "${_name_^}: Trash [EMPTY]"
-   exit 2
-}
+(\ls $_TINFO_/* &> /dev/null) || { _msg_ "${_name_^}: Trash [EMPTY]" && exit 2 ;}
 
 read LINES COLUMNS < <(stty size)
 
 _RF_="${_list_[@]:$_all_}"
 
-[ -z "$_RF_" ] && {
+[ "$_RF_" ] || {
 	DIALOG_TTY=1
 	_RF_=$(eval "dialog --stdout --title 'Brash Restore' --checklist 'Pick Files (Accept Multiple) :' $LINES $COLUMNS $(($LINES - 8)) $(_list_files_)")
 }
@@ -198,7 +188,7 @@ _RF_="${_list_[@]:$_all_}"
 		\mv -f -- "$_TFILES_/$i" "$_file_" 2> /dev/null
         \rm -f -- "$_TINFO_/$i.trashinfo"  2> /dev/null
 
-		[ "$_VERBOSE_" = "true" ] && _msg_ "${_name_^} Restore '$_file_'"
+		[ "$_VERBOSE_" ] && _msg_ "${_name_^} Restore '$_file_'"
 	done
 }
 }
@@ -242,15 +232,12 @@ HELP
 # MAIN FUNCTION #
 #---------------#{{{
 _main_(){
+_all_=1
 case "$1" in
 	-d|--delete )
 		_mk_trash_
 		_REMOVE_="true"
-		[ "$2" = "-v" -o "$2" = "--verbose" ] && {
-			_VERBOSE_="true" _all_="2"
-		} || {
-			_all_="1"
-		}
+        [ "$2" == "-v" -o "$2" = "--verbose" ] && { _VERBOSE_="true" && ((_all_++)) ;}
 		;;
 	-l|--list )
 		_LIST_="true"
@@ -260,11 +247,7 @@ case "$1" in
 		;;
 	-r|--restore )
 		_RESTORE_="true"
-		[ "$2" = "-v" -o "$2" = "--verbose" ] && {
-			_VERBOSE_="true" _all_="2"
-		} || {
-			_all_="1"
-		}
+        [ "$2" == "-v" -o "$2" == "--verbose" ] && { _VERBOSE_="true" && ((_all_++)) ;}
 		;;
     -s|--size )
         _SIZE_="true"

@@ -32,7 +32,11 @@
 1. Introduction:
 
    Installation requires :
-	* __Dialog__ for Restore Multi select Dialog
+	* [Dialog](https://invisible-island.net/dialog/) for Restore Multi select Dialog
+    * [(Mawk/Gawk)](http://invisible-island.net/mawk/mawk.html) for file progress
+    * [Coreutils](https://www.gnu.org/software/coreutils) for Everything else
+
+    `Probably you just need Dialog`
 
 2. Set up [Brash]:
 
@@ -77,4 +81,4 @@ OPTS :
 * [X] Remove file with '-'
 
 
-[Brash]:http://gitlab.com/zakariagatter/brash
+[Brash]:http://github.com/zakariagatter/brash
