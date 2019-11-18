@@ -6,6 +6,7 @@
 - [Why Brash](#why_brash)
 - [Quick Start](#quick-start)
 - [Using Brash](#using-brash)
+- [Examples](#examples)
 - [TODO](#todo)
 
 ## About
@@ -19,6 +20,7 @@
 * Clean Trash
 * Restore files from trash
 * Nice progress viewer of what happened
+* Use regular expressions
 
 [Brash] can automatically...
 
@@ -62,14 +64,62 @@ brash [OPTS] [FILES]
 
 OPTS :
   -d | --delete  : Delete File and Directories
-  -c | --clean   : Clean Trash Files and Infos
-  -l | --list    : List Trash Files
   -r | --restore : Restore Files from trash
+  -l | --list    : List Trash Files
+  -c | --clean   : Clean Trash Files and Infos
   -s | --size    : Trash Size
   -v | --verbose : Verbose messages
   -h | --help    : Print help usage
 
 ```
+
+## Examples
+
+* Delete file or Directory
+
+    `brash -d EX `
+
+    `brash -d EX*`
+
+    `brash -d EX/*`
+
+    `brash -d EX/[A-Z]*`
+
+* Delete with verbose
+
+    `brash -d -v EX`
+
+    `brash -d -v EX*`
+
+    `brash -d -v EX/*`
+
+    `brash -d -v EX/[A-Z]*`
+
+* Restore file from Trash
+
+    `brash -r FILE_NAME`
+
+* Restore File from Trash with dialog
+
+    `brash -r `
+
+* Restore File from Trash with verbose
+
+    `brash -r -v FILE_NAME`
+
+    `brash -r -v`
+
+* Show list of files in trash
+
+    `brash -l`
+
+* Clean Trash
+
+    `brash -c`
+
+* Show Trash size
+
+    `brash -s`
 
 ## TODO
 [Brash] is a work in progress, so any ideas and patches are appreciated.
