@@ -3,113 +3,101 @@
 #--------#
 # DEBUG  #
 #--------#{{{
-#set -xv
+#set -e -x -v
 #}}}
 
 #-------------#
 # SCRIPT NAME #
 #-------------#{{{
-# Get the script name even if u change it
-_name_=${0##*/}
+name=${0##*/}
 #}}}
 
 #----------------#
 # TARSH LOCATION #
 #----------------#{{{
 # get Trash variable from Devices
-while read -r d ; do
+while read -ra part ; do
+	type="${part[1]}"
+	uuid="${part[2]}"
+	mount="${part[3]}"
 
-	# get partition
-	read -ra U < <(blkid $d)
-
-	# check if the partition mounted
-	read -ra D < <(lsblk -ln -o mountpoint $d)
-
-	# get partition UUID
-	eval "${U[1]}"
-
-	# if UUID empty its a external disk or a usb
-	[ "$UUID" ] && {
-		# if can find UUID id not a system Partititon
-		# and check if its mounted
-		[ -z "$(grep "$UUID" /etc/fstab)" ] && [ "${D}" ] && {
-			case "$PWD" in
-				${D}* ) _TRASH_="$D/.Trash" ;;
-			esac
-		}
+	[ "$type" = "part" ] && [ -z "$(awk '/'"$uuid"'/' /etc/fstab)" ] && [ "$mount" ] && {
+		case "$PWD" in
+			${mount}* ) TRASH="$mount/.Trash" ;;
+		esac
 	}
-done < <(ls -1 /dev/sd[a-z][1-9])
+done < <(lsblk -ln -o path,type,uuid,mountpoint)
 #}}}
 
 #---------------#
 # TRASH FOLDERS #
 #---------------#{{{
-_TRASH_=${_TRASH_:=$HOME/.local/share/Trash}
-_TFILES_="$_TRASH_/files"
-_TINFO_="$_TRASH_/info"
+TRASH=${TRASH:=$HOME/.local/share/Trash}
+TRASH_FILES="$TRASH/files"
+TRASH_INFO="$TRASH/info"
 #}}}
 
 #------------------#
 # MAKE TRASH FILES #
 #------------------#{{{
-_mk_trash_(){
-	[ -d "$_TFILES_" ] || mkdir -p "$_TFILES_"
-	[ -d "$_TINFO_" ] || mkdir -p "$_TINFO_"
-}
+[ -d "$TRASH_FILES" ]  || mkdir -p "$TRASH_FILES"
+[ -d "$TRASH_INFO" ]   || mkdir -p "$TRASH_INFO"
 #}}}
 
 #-------------#
 # MSG DIALOG  #
 #-------------#{{{
-_msg_(){ ( >&2 printf "%s: %s\n" "${_name_^}" "$1" ) ;}
+msg(){ printf "%s: %b\n" "${name^}" "$@" >&2 ;}
 #}}}
 
 #-----------#
 # ERROR MSG #
 #-----------#{{{
-_er_(){ ( >&2 printf "%s: %s\n" "${_name_^}" "$1" ) ; exit 2 ;}
+die(){ printf "%s: %b\n" "${name^}" "$@" >&2 ; exit 2 ;}
 #}}}
 
 #-------------#
 # REMOVE FILE #
 #-------------#{{{
-_remove_(){
+remove(){
 local i I
 
-for i in "${_list_[@]:$F}" ; do
+[ "${_list_[*]}" ] || die "missing file operand \ntry '$name -h' for more information."
+
+for i in "${_list_[@]}" ; do
 	local _file_=${i}
-	local _path_=$(realpath -- "$_file_" 2> /dev/null)
+	local _path_=$(realpath -s -- "$_file_" 2> /dev/null)
 	local _file_name_=${_path_##*/}
 	local _file_path_=${_path_%/*}
     local size count
 
     # check for file existing
-    [ -e "$_file_" ] || _er_ "$_file_: No such file or Directory."
+    [ -e "$_file_" ] || die "$_file_: No such file or Directory."
+
+    # check for file permission
+    [ -w "$_file_" ] || die "Can't Delete '$_file_' Permission denied"
 
     # get file size
-    read -a size < <(du -hc "$_file_" 2> /dev/null)
+    read -ra size < <(du -hs "$_file_" 2> /dev/null)
 
     # get count if there is any double
-    read count < <(ls -1 $_TFILES_/${_file_name_}* 2> /dev/null | sort -V | awk -F '[()]' '{line=$2}END{print line}')
+    read -r count < <(ls -1v $TRASH_FILES/${_file_name_}* 2> /dev/null | awk -F '[()]' '{line=$2}END{print line}')
 
     [ "$count" ] && {
         ((count++))
         _file_name_="${_file_name_}(${count})"
     } || {
-        [ -e "$_TFILES_/$_file_name_" ] && _file_name_="${_file_name_}(1)"
+        [ -e "$TRASH_FILES/$_file_name_" ] && _file_name_="${_file_name_}(1)"
     }
 
-    test -w "$_file_" || _er_ "Can't Delete '$_file_' Permission denied"
+    ( mv -f -- "$_file_" "$TRASH_FILES/$_file_name_" 2> /dev/null ) && {
+        printf "[Trash Info]\n"                    > "$TRASH_INFO/$_file_name_.trashinfo"
+        printf "DeletionDate=%(%F)TT%(%T)T\n"     >> "$TRASH_INFO/$_file_name_.trashinfo"
+        printf "PATH=%s\n" "$_file_path_/$_file_" >> "$TRASH_INFO/$_file_name_.trashinfo"
+    } || die "Delele [ERROR] '$_file_'"
 
-    ( mv -f -- "$_file_" "$_TFILES_/$_file_name_" 2> /dev/null ) && {
-        printf "[Trash Info]\n"                    > "$_TINFO_/$_file_name_.trashinfo"
-        printf "DeletionDate=%(%F)TT%(%T)T\n"     >> "$_TINFO_/$_file_name_.trashinfo"
-        printf "PATH=%s\n" "$_file_path_/$_file_" >> "$_TINFO_/$_file_name_.trashinfo"
-    } || {
-        _er_ "Delele [ERROR] '$_file_'"
-    }
-
-    [ "$_VERBOSE_" ] && _msg_ "Delete [$size] '$_file_'"
+    [ "$VERBOSE" ] && msg "Delete [$size] '$_file_'"
+    [ "$WAIT" ] && [ $WAIT -eq $WAIT ] 2> /dev/null && sleep $WAIT || die "'$WAIT' invalid number giving"
 done
 }
 #}}}
@@ -117,14 +105,14 @@ done
 #------------#
 # LIST FILES #
 #------------#{{{
-_list_(){
-(ls $_TINFO_/* &> /dev/null) || _er_ "Trash [EMPTY]"
+list(){
+(ls $TRASH_INFO/* &> /dev/null) || die "Trash [EMPTY]"
 
-for i in $_TINFO_/* ; do
+for i in $TRASH_INFO/* ; do
 	local _file_=$(awk -F = '/^PATH=/{print $2}' "$i")
 	local _date_=$(awk -F = '/^DeletionDate=/{sub("T"," ",$2); print $2}' "$i")
 
-    _msg_ "List [$_date_] '$_file_'"
+    msg "List [$_date_] '$_file_'"
 done
 }
 #}}}
@@ -132,14 +120,14 @@ done
 #-------------#
 # CLEAN TRASH #
 #-------------#{{{
-_clean_(){
-(ls $_TINFO_/* &> /dev/null) || _er_ "Trash [EMPTY]"
+clean(){
+(ls $TRASH_INFO/* &> /dev/null) || die "Trash [EMPTY]"
 
-_msg_ "Clean [INFO]"
-rm -rf -- $_TINFO_/*
+msg "Clean [INFO]"
+rm -rf -- $TRASH_INFO/*
 
-_msg_ "Clean [FILE]"
-rm -rf -- $_TFILES_/*
+msg "Clean [FILE]"
+rm -rf -- $TRASH_FILES/*
 
 }
 #}}}
@@ -148,7 +136,7 @@ rm -rf -- $_TFILES_/*
 # LIST FILES FOR BRASH RETORE  #
 #------------------------------#{{{
 _list_files_(){
-for i in $_TINFO_/* ; do
+for i in $TRASH_INFO/* ; do
 	local _file_=$(awk -F = '/^PATH=/{print $2}' "$i")
 	local _date_=$(awk -F = '/^DeletionDate=/{sub("T"," ",$2); print $2}' "$i")
 	i=${i##*/}
@@ -160,12 +148,12 @@ done
 #--------------#
 # RESTORE FILE #
 #--------------#{{{
-_restore_(){
-(ls $_TINFO_/* &> /dev/null) || _er_ "Trash [EMPTY]"
+restore(){
+(ls $TRASH_INFO/* &> /dev/null) || die "Trash [EMPTY]"
 
-read LINES COLUMNS < <(stty size)
+read -r LINES COLUMNS < <(stty size)
 
-_RF_="${_list_[@]:$F}"
+_RF_="${_list_[@]}"
 
 [ "$_RF_" ] || {
 	DIALOG_TTY=1
@@ -174,16 +162,16 @@ _RF_="${_list_[@]:$F}"
 
 [ "$_RF_" ] && {
 	for i in ${_RF_[@]}; do
-		local _file_=$(awk -F = '/^PATH=/{print $2}' "$_TINFO_/$i.trashinfo")
+		local _file_=$(awk -F = '/^PATH=/{print $2}' "$TRASH_INFO/$i.trashinfo")
 
-        test -w "$_TINFO_/$i" || _er_ "Can't Restore '$_file_' Permission denied"
+        [ -w "$TRASH_INFO/$i" ] || die "Can't Restore '$_file_' Permission denied"
 
-        test -f "$_file_" && _file_="${_file_}(1)"
+        [ -f "$_file_" ] && _file_="${_file_}(1)"
 
-		mv -f -- "$_TFILES_/$i" "$_file_" 2> /dev/null
-        rm -f -- "$_TINFO_/$i.trashinfo"  2> /dev/null
+		mv -f -- "$TRASH_FILES/$i" "$_file_" 2> /dev/null
+        rm -f -- "$TRASH_INFO/$i.trashinfo"  2> /dev/null
 
-		[ "$_VERBOSE_" ] && _msg_ "Restore '$_file_'"
+		[ "$VERBOSE" ] && msg "Restore '$_file_'"
 	done
 }
 }
@@ -192,33 +180,36 @@ _RF_="${_list_[@]:$F}"
 #-------------#
 # TRASH SIZE  #
 #-------------#{{{
-_size_(){
+size(){
     local size count
 
-    read size < <(du -hc "$_TRASH_"/* | awk '/total$/{print $1}')
-    read count < <(ls -1 "$_TRASH_"/* | wc -l)
+    read -r size < <(du -hs "$TRASH"/* | awk '/total$/{print $1}')
+    read -r count < <(ls -1 "$TRASH"/* | wc -l)
 
-    _msg_ "Size [$size], Files [$count]"
+    msg "Size [$size], Files [$count]"
 }
 #}}}
 
 #-------------#
 # HELP DIALOG #
 #-------------#{{{
-_help_(){
-cat <<- HELP
-${_name_^^} Cli Trash Manager in bure Bash
+help(){
+while read; do
+    printf "%s\n" "$REPLY"
+done <<- HELP
+${name^^} Cli Trash Manager in bure Bash
 
-$_name_ [OPTS] [FILES]
+$name [OPTS] [FILES]
 
 OPTS :
-  -d : Delete File and Directories
-  -c : Clean Trash Files and Infos
-  -l : List Trash Files
-  -r : Restore Files from trash
-  -s : Trash Size
-  -v : Explain what is being done
-  -h : Display this help text and exit
+  -d <FILES> : Delete File and Directories
+  -c         : Clean Trash Files and Infos
+  -l         : List Trash Files
+  -r <FILES> : Restore Files from trash
+  -s         : Trash Size
+  -w <NUM>   : Wait before delete the next file in Seconds
+  -v         : Explain what is being done
+  -h         : Display this help text and exit
 HELP
 
 exit 0
@@ -228,57 +219,66 @@ exit 0
 #---------------#
 # MAIN FUNCTION #
 #---------------#{{{
-_main_(){
-while getopts "dlcrsvh" OPT ; do
+main(){
+while getopts ":dlcrsvw:h" OPT ; do
     case "$OPT" in
         d )
-            _mk_trash_
-            _REMOVE_=true
+            REMOVE=true
             ;;
         l )
-            _LIST_=true
+            LIST=true
             ;;
         c )
-            _CLEAN_=true
+            CLEAN=true
             ;;
         r )
-            _RESTORE_=true
+            RESTORE=true
             ;;
         s )
-            _SIZE_=true
+            SIZE=true
             ;;
         h )
-            _help_
+            HELP=true
             ;;
         v )
-            _VERBOSE_=true
+            VERBOSE=true
+            ;;
+        w )
+            WAIT="${OPTARG}"
             ;;
         * )
-            _er_ "invalid option -- '$OPTARG'\nTry '${_name_} -h' for more information"
+            die "invalid option -- '$OPTARG' \nTry '$name -h' for more information"
+            ;;
+        : )
+			die "option requires an argument -- '$OPTARG' \nTry '$name -h' for more information."
             ;;
     esac
 
-    F=$((OPTIND-1))
 done
+
+shift $(($OPTIND - 1))
+
+# get all files even with spaces
+while read ; do
+    _list_+=( "$REPLY" )
+done < <(printf "%s\n" "$@")
 }
 #}}}
 
 #-------------------#
 # RUN MAIN FUNCTION #
 #-------------------#{{{
-# this the only way i found to deal with spaces inside filename
-for i in "$@"; { _list_+=( "$i" ) ;}
-_main_ $@
+main "$@"
 #}}}
 
 #---------------#
 # DETECT ERRORS #
 #---------------#{{{
-[ "$_VERBOSE_" ] && _all_=2   || _all_=1
-[ "$_REMOVE_" ]  && _remove_  || true
-[ "$_LIST_" ]    && _list_    || true
-[ "$_CLEAN_" ]   && _clean_   || true
-[ "$_RESTORE_" ] && _restore_ || true
-[ "$_SIZE_" ]    && _size_    || true
+[ "$HELP" ]    && help      || true
+[ "$REMOVE" ]  && remove    || true
+[ "$LIST" ]    && list      || true
+[ "$CLEAN" ]   && clean     || true
+[ "$RESTORE" ] && restore   || true
+[ "$SIZE" ]    && size      || true
 #}}}
 
