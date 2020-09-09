@@ -65,8 +65,8 @@ local i I
 [ "${_list_[*]}" ] || die "missing file operand \ntry '$name -h' for more information."
 
 for i in "${_list_[@]}" ; do
-	local _file_=${i}
-	local _path_=$(realpath -s -- "$_file_" 2> /dev/null)
+	local _file_=${i##*/}
+	local _path_=$(realpath -s -- "$i" 2> /dev/null)
 	local _file_name_=${_path_##*/}
 	local _file_path_=${_path_%/*}
     local size count
@@ -97,7 +97,7 @@ for i in "${_list_[@]}" ; do
     } || die "Delele [ERROR] '$_file_'"
 
     [ "$VERBOSE" ] && msg "Delete [$size] '$_file_'"
-    [ "$WAIT" ] && [ $WAIT -eq $WAIT ] 2> /dev/null && sleep $WAIT || die "'$WAIT' invalid number giving"
+    [ "$WAIT" ] && [ $WAIT -eq $WAIT ] 2> /dev/null && sleep $WAIT
 done
 }
 #}}}
@@ -108,11 +108,20 @@ done
 list(){
 (ls $TRASH_INFO/* &> /dev/null) || die "Trash [EMPTY]"
 
-for i in $TRASH_INFO/* ; do
-	local _file_=$(awk -F = '/^PATH=/{print $2}' "$i")
-	local _date_=$(awk -F = '/^DeletionDate=/{sub("T"," ",$2); print $2}' "$i")
+[ "$LIST" != "true" ] && {
+	(date -d "$LIST" +%Y-%m-%d\ %H:%M:%S &> /dev/null) || die "invalid date '$LIST'. \nTry: '$name -h' for more informations."
+}
 
-    msg "List [$_date_] '$_file_'"
+local date file
+for i in $TRASH_INFO/* ; do
+	read -r file < <(awk -F = '/^PATH=/{print $2}' "$i")
+	read -r date < <(awk -F = '/^DeletionDate=/{sub("T"," ",$2); print $2}' "$i")
+
+	if [[ $date =~ $LIST ]]; then 
+		msg "List [$date] '$file'"
+	elif [ "$LIST" = "true" ]; then 
+		msg "List [$date] '$file'"
+	fi
 done
 }
 #}}}
@@ -123,12 +132,25 @@ done
 clean(){
 (ls $TRASH_INFO/* &> /dev/null) || die "Trash [EMPTY]"
 
-msg "Clean [INFO]"
-rm -rf -- $TRASH_INFO/*
+[ "$CLEAN" != "true" ] && {
+	(date -d "$LIST" +%Y-%m-%d\ %H:%M:%S &> /dev/null) || die "invalid date '$LIST'. \nTry: '$name -h' for more informations."
+}
 
-msg "Clean [FILE]"
-rm -rf -- $TRASH_FILES/*
+local date file info
+for i in $TRASH_INFO/* ; do
+	read -r date < <(awk -F = '/^DeletionDate=/{sub("T"," ",$2); print $2}' "$i")
+	info=${i##*/}
+	file=${info%.*}
 
+	if [[ $date =~ $CLEAN ]]; then
+		msg "Clean [INFO] [FILE] '$file'"
+		rm -rf -- $TRASH_INFO/$info $TRASH_FILES/$file
+	elif [ "$CLEAN" = "true" ]; then
+		msg "Clean all [INFO] [FILES]"
+		rm -rf -- $TRASH_INFO/* $TRASH_FILES/*
+		break 
+	fi
+done
 }
 #}}}
 
@@ -151,16 +173,13 @@ done
 restore(){
 (ls $TRASH_INFO/* &> /dev/null) || die "Trash [EMPTY]"
 
-read -r LINES COLUMNS < <(stty size)
+if (date -d "$RESTORE" +%Y-%m-%d\ %H:%M:%S &> /dev/null) ;then 
+else
+	die "invalid date '$RESTORE'. \nTry: '$name -h' for more informations."
+fi
 
-_RF_="${_list_[@]}"
-
-[ "$_RF_" ] || {
-	DIALOG_TTY=1
-	_RF_=$(eval "dialog --stdout --title 'Brash Restore' --checklist 'Pick Files (Accept Multiple) :' $LINES $COLUMNS $(($LINES - 8)) $(_list_files_)")
-}
-
-[ "$_RF_" ] && {
+local RF="${_list_[@]}"
+[ "$RF" ] && {
 	for i in ${_RF_[@]}; do
 		local _file_=$(awk -F = '/^PATH=/{print $2}' "$TRASH_INFO/$i.trashinfo")
 
@@ -173,6 +192,9 @@ _RF_="${_list_[@]}"
 
 		[ "$VERBOSE" ] && msg "Restore '$_file_'"
 	done
+} || {
+	read -r LINES COLUMNS < <(stty size)
+	read -r RF < <(dialog --stdout --title "Brash Restore" --checklist "Pick Files (Accept Multiple) :" $LINES $COLUMNS $(($LINES - 8)) $(_list_files_))
 }
 }
 #}}}
@@ -183,8 +205,8 @@ _RF_="${_list_[@]}"
 size(){
     local size count
 
-    read -r size < <(du -hs "$TRASH"/* | awk '/total$/{print $1}')
-    read -r count < <(ls -1 "$TRASH"/* | wc -l)
+    read -r size < <(du -hcs $TRASH_FILES | awk '/total$/{print $1}')
+    read -r count < <(ls -1 $TRASH_FILES | wc -l)
 
     msg "Size [$size], Files [$count]"
 }
@@ -202,14 +224,17 @@ ${name^^} Cli Trash Manager in bure Bash
 $name [OPTS] [FILES]
 
 OPTS :
-  -d <FILES> : Delete File and Directories
-  -c         : Clean Trash Files and Infos
-  -l         : List Trash Files
-  -r <FILES> : Restore Files from trash
-  -s         : Trash Size
-  -w <NUM>   : Wait before delete the next file in Seconds
-  -v         : Explain what is being done
-  -h         : Display this help text and exit
+	-d <FILES> : Delete File and Directories
+	-c <DATE>  : Clean Trash Files and Infos. 	Accept (Date Or leave it Empty)
+	-l <DATE>  : List Trash Files. 				Accept (Date Or leave it Empty)
+	-r <FILES> : Restore Files from trash. 		Accept (Files,Date Or leave it Empty)
+	-s         : Trash Size
+	-w <NUM>   : Wait before delete the next file in Seconds
+  	-v         : Explain what is being done
+  	-h         : Display this help text and exit
+
+NOTE: 
+	Valide date and time : YYYY-MM-DD HH:MM:SS
 HELP
 
 exit 0
@@ -224,21 +249,30 @@ while getopts ":dlcrsvw:h" OPT ; do
     case "$OPT" in
         d )
             REMOVE=true
+			action+=( $OPT )
             ;;
         l )
-            LIST=true
+			local date=$(eval "echo \$${OPTIND}")
+			[[ $date =~ ^-.* || -z "$date" ]] && LIST="true" || LIST="$date"
+			action+=( $OPT )
             ;;
         c )
-            CLEAN=true
+			local date=$(eval "echo \$$OPTIND")
+			[[ $date =~ ^-.* || -z "$date" ]] && CLEAN="true" || CLEAN="$date"
+			action+=( $OPT )
             ;;
         r )
-            RESTORE=true
+			local date=$(eval "echo \$$OPTIND")
+			[[ $date =~ ^-.* || -z "$date" ]] && RESTORE="true" || RESTORE="$date"
+			action+=( $OPT )
             ;;
         s )
             SIZE=true
+			action+=( $OPT )
             ;;
         h )
             HELP=true
+			action+=( $OPT )
             ;;
         v )
             VERBOSE=true
@@ -274,11 +308,12 @@ main "$@"
 #---------------#
 # DETECT ERRORS #
 #---------------#{{{
-[ "$HELP" ]    && help      || true
-[ "$REMOVE" ]  && remove    || true
-[ "$LIST" ]    && list      || true
-[ "$CLEAN" ]   && clean     || true
-[ "$RESTORE" ] && restore   || true
-[ "$SIZE" ]    && size      || true
+[ ${#action[@]} -gt 1 ] && die "only one operation may be used at a time. \nTry: '$name -h' for more information"
+[ "$HELP" ]    	&& help      || true
+[ "$REMOVE" ]  	&& remove    || true
+[ "$LIST" ]    	&& list      || true
+[ "$CLEAN" ]   	&& clean     || true
+[ "$RESTORE" ] 	&& restore   || true
+[ "$SIZE" ]    	&& size      || true
 #}}}
 
