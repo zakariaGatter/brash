@@ -1,319 +1,482 @@
-#!/usr/bin/env bash
-
-#--------#
-# DEBUG  #
-#--------#{{{
-#set -e -x -v
-#}}}
+#!/usr/bin/env bash 
 
 #-------------#
 # SCRIPT NAME #
-#-------------#{{{
-name=${0##*/}
-#}}}
+#-------------#
+name="${0##*/}"
+
+#-------------------#
+# GENERAL VARIABLES #
+#-------------------#
+declare -A options
+declare -u Answer
+error_count=0
+VERSION="0.1.0"
+
+#---------------------#
+# ENABLE BASH OPTIONS #
+#---------------------#
+shopt -s dotglob extglob nullglob
+
+#---------------------------#
+# GET SYSTEM PARTITION UUID #
+#---------------------------#
+while read -ra line ; do
+    [ "${line[0]%=*}" = "UUID" ] && PUUID+=( "${line[0]#*=}" )
+done < /etc/fstab
 
 #----------------#
-# TARSH LOCATION #
-#----------------#{{{
-# get Trash variable from Devices
-while read -ra part ; do
-	type="${part[1]}"
-	uuid="${part[2]}"
-	mount="${part[3]}"
+# GET TRASH PATH #
+#----------------#
+while read -ra line ;do
+    uuid=${line[0]}
+    type=${line[1]}
+    unset line[0] line[1]
+    mount=${line[@]}
 
-	[ "$type" = "part" ] && [ -z "$(awk '/'"$uuid"'/' /etc/fstab)" ] && [ "$mount" ] && {
-		case "$PWD" in
-			${mount}* ) TRASH="$mount/.Trash" ;;
-		esac
-	}
-done < <(lsblk -ln -o path,type,uuid,mountpoint)
-#}}}
+    if [ "$type" = "part" ]; then
+        if ! [[ $uuid =~ ${PUUID[@]} ]]; then 
+            [[ $mount =~ $PWD ]] && TRASH_PATH="$mount"
+        fi
+    fi
+done< <(lsblk -ln -o uuid,type,mountpoint)
+unset PUUID uuid type mount line
 
-#---------------#
-# TRASH FOLDERS #
-#---------------#{{{
-TRASH=${TRASH:=$HOME/.local/share/Trash}
-TRASH_FILES="$TRASH/files"
-TRASH_INFO="$TRASH/info"
-#}}}
+#-----------------#
+# TRASH DIRECTORY #
+#-----------------#
+[ "$TRASH_PATH" ] || TRASH_PATH="${XDG_DATA_HOME:-$HOME/.local/share}"
+TRASH_DIR="$TRASH_PATH/Trash"
+TRASH_INFO="$TRASH_DIR/info"
+TRASH_FILE="$TRASH_DIR/files"
 
-#------------------#
-# MAKE TRASH FILES #
-#------------------#{{{
-[ -d "$TRASH_FILES" ]  || mkdir -p "$TRASH_FILES"
-[ -d "$TRASH_INFO" ]   || mkdir -p "$TRASH_INFO"
-#}}}
+#------------------------#
+# CHECK FOR DIR EXISTING #
+#------------------------#
+[ -d "$TRASH_INFO" ] || mkdir -p "$TRASH_INFO"
+[ -d "$TRASH_FILE" ] || mkdir -p "$TRASH_FILE"
 
-#-------------#
-# MSG DIALOG  #
-#-------------#{{{
-msg(){ printf "%s: %b\n" "${name^}" "$@" >&2 ;}
-#}}}
+#-----------------------------------#
+# GET LIST OF TRASH FILES AND INFOS #
+#-----------------------------------#
+TrashFiles=( $TRASH_FILE/* )
+TrashInfos=( $TRASH_INFO/* )
+
+#---------------------#
+# ERROR MSG WITH EXIT #
+#---------------------#
+die(){
+    printf "%s: %b\n" "${name^}" "$@" >&2
+    exit 2
+}
 
 #-----------#
 # ERROR MSG #
-#-----------#{{{
-die(){ printf "%s: %b\n" "${name^}" "$@" >&2 ; exit 2 ;}
-#}}}
-
-#-------------#
-# REMOVE FILE #
-#-------------#{{{
-remove(){
-local i I
-
-[ "${_list_[*]}" ] || die "missing file operand \ntry '$name -h' for more information."
-
-for i in "${_list_[@]}" ; do
-	local _file_=${i##*/}
-	local _path_=$(realpath -s -- "$i" 2> /dev/null)
-	local _file_name_=${_path_##*/}
-	local _file_path_=${_path_%/*}
-    local size count
-
-    # check for file existing
-    [ -e "$_file_" ] || die "$_file_: No such file or Directory."
-
-    # check for file permission
-    [ -w "$_file_" ] || die "Can't Delete '$_file_' Permission denied"
-
-    # get file size
-    read -ra size < <(du -hs "$_file_" 2> /dev/null)
-
-    # get count if there is any double
-    read -r count < <(ls -1v $TRASH_FILES/${_file_name_}* 2> /dev/null | awk -F '[()]' '{line=$2}END{print line}')
-
-    [ "$count" ] && {
-        ((count++))
-        _file_name_="${_file_name_}(${count})"
-    } || {
-        [ -e "$TRASH_FILES/$_file_name_" ] && _file_name_="${_file_name_}(1)"
-    }
-
-    ( mv -f -- "$_file_" "$TRASH_FILES/$_file_name_" 2> /dev/null ) && {
-        printf "[Trash Info]\n"                    > "$TRASH_INFO/$_file_name_.trashinfo"
-        printf "DeletionDate=%(%F)TT%(%T)T\n"     >> "$TRASH_INFO/$_file_name_.trashinfo"
-        printf "PATH=%s\n" "$_file_path_/$_file_" >> "$TRASH_INFO/$_file_name_.trashinfo"
-    } || die "Delele [ERROR] '$_file_'"
-
-    [ "$VERBOSE" ] && msg "Delete [$size] '$_file_'"
-    [ "$WAIT" ] && [ $WAIT -eq $WAIT ] 2> /dev/null && sleep $WAIT
-done
+#-----------#
+ero(){
+    printf "%s: %b\n" "${name^}" "$@" >&2
+    (( error_count++ ))
 }
-#}}}
 
 #------------#
-# LIST FILES #
-#------------#{{{
-list(){
-(ls $TRASH_INFO/* &> /dev/null) || die "Trash [EMPTY]"
-
-[ "$LIST" != "true" ] && {
-	(date -d "$LIST" +%Y-%m-%d\ %H:%M:%S &> /dev/null) || die "invalid date '$LIST'. \nTry: '$name -h' for more informations."
+# SIMPLE MSG #
+#------------#
+msg(){
+    printf "%s: %b\n" "${name^}" "$@"
 }
 
-local date file
-for i in $TRASH_INFO/* ; do
-	read -r file < <(awk -F = '/^PATH=/{print $2}' "$i")
-	read -r date < <(awk -F = '/^DeletionDate=/{sub("T"," ",$2); print $2}' "$i")
+#---------------------#
+# MOVE TO TRASH FILES #
+#---------------------#
+delete_func(){
+#check for I option
+if [ "${options[I]}" ] && [ -z "${options[i]}" ]; then 
+    if [ ${#ListFiles[@]} -gt 3 ]; then 
+        printf "%s: %b" "${name^}" "Remove ${#ListFiles[*]} arguments recursively [Y/n]?"
+        read -n1 -s Answer
+        [ "$Answer" = "Y" ] || return 0
+    fi
+fi
 
-	if [[ $date =~ $LIST ]]; then 
-		msg "List [$date] '$file'"
-	elif [ "$LIST" = "true" ]; then 
-		msg "List [$date] '$file'"
-	fi
+for file in ${ListFiles[@]}; do
+    read full < <(realpath -s -- $file)
+    FilePath="${full%/*}"
+    FileName="${full##*/}"
+    
+    # check the giving file is exist 
+    if ! [[ -e $file ]]; then 
+        ero "'$file' No such file or directory."
+        continue
+    # check if you have the permission to manage it 
+    elif ! [[ -w $file ]]; then 
+        ero "Can not Delete '$file' Permission denied"
+        continue
+    fi
+
+    # check for i option
+    if [ "${options[i]}" ] && [ -z "${options[I]}" ]; then 
+        printf "%s: %b\r" "${name^}" "Remove '$FileName' arguments recursively [Y/n]?"
+        read -n1 -s Answer
+        [ "$Answer" = "Y" ] || continue
+    fi
+
+    # if this a link manage it as so 
+    if [ -L "$file" ]; then 
+        unlink -- "$file"
+        [ "${options[v]}" ] && msg "Unlinked '$file'"
+        continue
+    fi
+
+    # check for name in Trash
+    while [ -e "$TRASH_FILE/$FileName" ]; do
+        FileName="${FileName}_"
+    done
+
+    # move file to Trash 
+    if (mv -f -- "$full" $TRASH_FILE &> /dev/null); then 
+        printf "[Trash Info]\n"                  > "$TRASH_INFO/$FileName.trashinfo"
+        printf "DeletionDate=%(%F)TT%(%T)T\n"   >> "$TRASH_INFO/$FileName.trashinfo"
+        printf "PATH=%s\n" "$full"              >> "$TRASH_INFO/$FileName.trashinfo"
+        [ "${options[v]}" ] && msg "Removed '$file'"
+    else
+        ero "[Error] Deleting '$file'"
+    fi
 done
+
+# exit with same number of errors
+[ $error_count -ne 0 ] && exit $error_count
+
+unset file full FilePath FileName
 }
-#}}}
+
+#------------------#
+# LIST TRASH FILES #
+#------------------#
+list_func(){
+[ "${TrashInfos[*]}" ] || die "Empty Trash, No files to List"
+
+if [ "$DateList" ]; then 
+    (date --date="$DateList" +%F &> /dev/null) || die "invalid date '$DateList'.\nTry '$name -h' for more informations."
+
+    read DateCheck < <(date --date="$DateList" +%F)
+    msg "List Trash files By Date."
+
+    for item in ${TrashInfos[@]}; do
+        while read -r line; do
+            [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
+            [ "${line%%=*}" = "PATH" ] && file=${line#*=}
+        done < "$item"
+        [[ ${date/T/ } =~ $DateCheck ]] && printf "[%s] %s\n" "${date/T/ }" "$file"
+        unset file date
+    done
+
+elif [ "$FileList" ]; then 
+    msg "List Trash files By Name. "
+
+    for opt in ${ListFiles[@]}; do
+        for item in ${TrashInfos[@]}; do
+            while read -r line; do
+                [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
+                [ "${line%%=*}" = "PATH" ] && file=${line#*=}
+            done < "$item"
+            [[ $file =~ $opt ]] && printf "[%s] %s\n" "${date/T/ }" "$file"
+            unset file date
+        done
+    done
+
+elif [ "$empty" ]; then
+    msg "List All Trash files"
+
+    for item in ${TrashInfos[@]}; do
+        while read -r line; do
+            [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
+            [ "${line%%=*}" = "PATH" ] && file=${line#*=}
+        done < "$item"
+        printf "[%s] %s\n" "${date/T/ }" "$file"
+        unset file date
+    done
+
+fi
+
+unset line empty DateList DateCheck item FileList opt
+}
 
 #-------------#
 # CLEAN TRASH #
-#-------------#{{{
-clean(){
-(ls $TRASH_INFO/* &> /dev/null) || die "Trash [EMPTY]"
+#-------------#
+clean_func(){
+[ "${TrashInfos[*]}" ] || die "Empty Trash, No files or Directories to Clean"
 
-[ "$CLEAN" != "true" ] && {
-	(date -d "$LIST" +%Y-%m-%d\ %H:%M:%S &> /dev/null) || die "invalid date '$LIST'. \nTry: '$name -h' for more informations."
+count=0
+
+if [ "$DateClean" ]; then 
+    (date --date="$DateClean" +%F &> /dev/null) || die "invalid date '$DateClean'.\nTry '$name -h' for more informations."
+
+    read DateCheck < <(date --date="$DateClean" +%F)
+
+    for item in ${TrashInfos[@]}; do
+        while read -r line; do
+            [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
+        done < "$item"
+        if [[ ${date/T} =~ $DateCheck ]]; then 
+            file="${item##*/}"
+            rm -rf "$item" "$TRASH_FILE/${file%.*}"
+            ((count++))
+            printf "Cleaning: %s Item(s) By Date\r" "$count" "$DateClean"
+            sleep 0.2
+        fi
+    done
+elif [ "$FileClean" ]; then 
+    for opt in ${ListFiles[@]}; do
+        for item in ${TrashInfos[@]}; do
+            while read -r line; do
+                [ "${line%%=*}" = "PATH" ] && file=${line#*=}
+            done < "$item"
+            if [[ $file =~ $opt ]]; then
+                file="${item##*/}"
+                rm -rf "$item" "$TRASH_FILE/${file%.*}"
+                ((count++))
+                printf "Cleaning: %s Item(s) by File\r" "$count"
+                sleep 0.2
+            fi
+        done
+    done
+elif [ "$empty" ]; then 
+    for item in ${TrashFiles[@]} ;do
+        rm -rf "$item" "$TRASH_INFO/${item##*/}.trashinfo"
+        ((count++))
+        printf "Cleaning: %s Item(s)\r" "$count"
+        sleep 0.2
+    done
+fi
+printf "\n"
+
+unset count DateClean DateCheck item line date file FileClean opt empty 
 }
 
-local date file info
-for i in $TRASH_INFO/* ; do
-	read -r date < <(awk -F = '/^DeletionDate=/{sub("T"," ",$2); print $2}' "$i")
-	info=${i##*/}
-	file=${info%.*}
-
-	if [[ $date =~ $CLEAN ]]; then
-		msg "Clean [INFO] [FILE] '$file'"
-		rm -rf -- $TRASH_INFO/$info $TRASH_FILES/$file
-	elif [ "$CLEAN" = "true" ]; then
-		msg "Clean all [INFO] [FILES]"
-		rm -rf -- $TRASH_INFO/* $TRASH_FILES/*
-		break 
-	fi
+#-----------------------------------------#
+# LIST TRASH FILE INFO FOR RESTORE SELECT #
+#-----------------------------------------#
+ListItems(){
+for item in ${TrashInfos[@]}; do
+    while read line; do
+        [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
+        [ "${line%%=*}" = "PATH" ] && file=${line#*=}
+    done < $item
+    item="${item##*/}"
+    printf "'%s' '%s' OFF " "${item%.*}" "[${date/T/ }] ${file/$HOME/\~}"
 done
 }
-#}}}
 
-#------------------------------#
-# LIST FILES FOR BRASH RETORE  #
-#------------------------------#{{{
-_list_files_(){
-for i in $TRASH_INFO/* ; do
-	local _file_=$(awk -F = '/^PATH=/{print $2}' "$i")
-	local _date_=$(awk -F = '/^DeletionDate=/{sub("T"," ",$2); print $2}' "$i")
-	i=${i##*/}
-    printf "'%s' '%s' OFF " "${i%.*}" "$_file_ $_date_"
-done
-}
-#}}}
+#-----------------------#
+# RESTORE DELETED FILES #
+#-----------------------#
+restore_func(){
+[ "${TrashInfos[*]}" ] || die "Empty Trash, No files to Restore"
 
-#--------------#
-# RESTORE FILE #
-#--------------#{{{
-restore(){
-(ls $TRASH_INFO/* &> /dev/null) || die "Trash [EMPTY]"
+if [ "$DateList" ]; then 
+    (date --date="$DateList" +%F &> /dev/null) || die "invalid date '$DateList'.\nTry '$name -h' for more informations."
 
-if (date -d "$RESTORE" +%Y-%m-%d\ %H:%M:%S &> /dev/null) ;then 
-else
-	die "invalid date '$RESTORE'. \nTry: '$name -h' for more informations."
+    read DateCheck < <(date --date="$DateList" +%F)
+
+    for item in ${TrashInfos[@]}; do
+        while read -r line; do
+            [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
+            [ "${line%%=*}" = "PATH" ] && file=${line#*=}
+        done < "$item"
+        if [[ ${date/T/ } =~ $DateCheck ]]; then 
+            while [ -e "$file" ]; do file="${file}_" ;done
+
+            item="${item##*/}"
+            item="${item%.*}"
+            mv -rf "$TRASH_FILE/$item" "$file"
+            [ "${options[v]}" ] && msg "Restored '$file'"
+        fi
+        unset file date
+    done
+
+elif [ "$FileList" ]; then 
+    for opt in ${ListFiles[@]}; do
+        for item in ${TrashInfos[@]}; do
+            while read -r line; do
+                [ "${line%%=*}" = "PATH" ] && file=${line#*=}
+            done < "$item"
+            if [[ $file =~ $opt ]]; then 
+                while [ -e "$file" ]; do file="${file}_" ;done
+
+                item="${item##*/}"
+                item="${item%.*}"
+                mv -rf "$TRASH_FILE/$item" "$file"
+                [ "${options[v]}" ] && msg "Restored '$file'"
+            fi
+            unset file date
+        done
+    done
+elif [ "$empty" ]; then
+    read LINES COLUMNS < <(stty size)
+    read -a resoult < <(eval "dialog --stdout --title '${name^} Restore' --checklist 'Pick Files to restore (Accept Multiple) :' $LINES $COLUMNS $(($LINES - 8)) $(ListItems)")
+
+    for item in ${resoult[@]}; do
+        while read line; do
+            [ "${line%%=*}" = "PATH" ] && file=${line#*=}
+        done < $TRASH_INFO/$item.trashinfo
+
+        while [ -e "$file" ]; do file="${file}_" ;done
+
+        mv -rf "$TRASH_FILE/$item" "$file"
+        [ "${options[v]}" ] && msg "Restored '$file'"
+    done
 fi
 
-local RF="${_list_[@]}"
-[ "$RF" ] && {
-	for i in ${_RF_[@]}; do
-		local _file_=$(awk -F = '/^PATH=/{print $2}' "$TRASH_INFO/$i.trashinfo")
-
-        [ -w "$TRASH_INFO/$i" ] || die "Can't Restore '$_file_' Permission denied"
-
-        [ -f "$_file_" ] && _file_="${_file_}(1)"
-
-		mv -f -- "$TRASH_FILES/$i" "$_file_" 2> /dev/null
-        rm -f -- "$TRASH_INFO/$i.trashinfo"  2> /dev/null
-
-		[ "$VERBOSE" ] && msg "Restore '$_file_'"
-	done
-} || {
-	read -r LINES COLUMNS < <(stty size)
-	read -r RF < <(dialog --stdout --title "Brash Restore" --checklist "Pick Files (Accept Multiple) :" $LINES $COLUMNS $(($LINES - 8)) $(_list_files_))
+unset line empty DateList DateCheck item FileList opt
 }
+
+
+#----------------#
+# GET TRASH SIZE #
+#----------------#
+size_func(){
+[ "${TrashInfos[*]}" ] || die "Empty Trash, No files Directories to Weight"
+
+count=0
+
+for item in ${TrashFiles[@]}; do
+    ((count++))
+    read -r size < <(du -hcs $TRASH_FILE | awk '/total$/{print $1}')
+    printf "Size [%s], Files [%s]\r" "$size" "$count"
+    sleep 0.1
+done
+printf "\n"
+
+unset item count size
 }
-#}}}
-
-#-------------#
-# TRASH SIZE  #
-#-------------#{{{
-size(){
-    local size count
-
-    read -r size < <(du -hcs $TRASH_FILES | awk '/total$/{print $1}')
-    read -r count < <(ls -1 $TRASH_FILES | wc -l)
-
-    msg "Size [$size], Files [$count]"
-}
-#}}}
 
 #-------------#
 # HELP DIALOG #
-#-------------#{{{
-help(){
-while read; do
+#-------------#
+help_func(){
+while read ; do
     printf "%s\n" "$REPLY"
-done <<- HELP
-${name^^} Cli Trash Manager in bure Bash
+done <<-HELP
+${name^}-$VERSION: Cli Trash Manager in Pure Bash
+USAGE: $name [OPTIONS] ... files ...
 
-$name [OPTS] [FILES]
+OPTIONS:
+  -d <files>    Move to Trash giving files
+  -r            Restore File and Directories from Trash
+  -l            List of Deleted files
+  -c            Clean Trash Bin
+    --date      Sort the Resoult by Date
+    --file      Sort the Resoult by file name
+  -s            Calculate Trash size
+  -i            Ask before every remove
+  -I            Ask once before removing more than three files
+  -v            Explaine what been done
+  -h            Display this help dialog
+  -V            Display Version
 
-OPTS :
-	-d <FILES> : Delete File and Directories
-	-c <DATE>  : Clean Trash Files and Infos. 	Accept (Date Or leave it Empty)
-	-l <DATE>  : List Trash Files. 				Accept (Date Or leave it Empty)
-	-r <FILES> : Restore Files from trash. 		Accept (Files,Date Or leave it Empty)
-	-s         : Trash Size
-	-w <NUM>   : Wait before delete the next file in Seconds
-  	-v         : Explain what is being done
-  	-h         : Display this help text and exit
+NOTE:
+  Format for '--date' option is (YYYY-MM-DD) or human readable date string
+    See: 'man date' for more information.
 
-NOTE: 
-	Valide date and time : YYYY-MM-DD HH:MM:SS
+  Options
+    (--date/--file) options work only with -c,-l,-r Main Options
+
 HELP
-
-exit 0
 }
-#}}}
 
 #---------------#
 # MAIN FUNCTION #
-#---------------#{{{
-main(){
-while getopts ":dlcrsvw:h" OPT ; do
-    case "$OPT" in
-        d )
-            REMOVE=true
-			action+=( $OPT )
+#---------------#
+main_func(){
+while [ "$1" ]; do
+    case "$1" in 
+        -d ) options[d]=true
+            until [[ $2 =~ ^-[dlrzciIvh]$ ]] || [[ -z "$2" ]] ; do
+                ListFiles+=( "$2" )
+                shift
+            done
             ;;
-        l )
-			local date=$(eval "echo \$${OPTIND}")
-			[[ $date =~ ^-.* || -z "$date" ]] && LIST="true" || LIST="$date"
-			action+=( $OPT )
+        -l ) options[l]=true
+            if [ "$2" = "--date" ]; then 
+                shift
+                [ "$2" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
+                DateList="$2"
+                shift
+            elif [ "$2" = "--file" ]; then 
+                [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
+                FileList=true
+                shift
+                until [[ $2 =~ ^-[dlrzciIvh]$ ]] || [[ -z "$2" ]] ; do
+                    ListFiles+=( "$2" )
+                    shift
+                done
+            else
+                empty=true
+            fi
             ;;
-        c )
-			local date=$(eval "echo \$$OPTIND")
-			[[ $date =~ ^-.* || -z "$date" ]] && CLEAN="true" || CLEAN="$date"
-			action+=( $OPT )
+        -r ) options[r]=true
+            if [ "$2" = "--date" ]; then 
+                shift
+                [ "$2" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
+                DateRestore="$2"
+                shift
+            elif [ "$2" = "--file" ]; then 
+                [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
+                FileRestore=true
+                shift
+                until [[ $2 =~ ^-[dlrzciIvh]$ ]] || [[ -z "$2" ]] ; do
+                    ListFiles+=( "$2" )
+                    shift
+                done
+            else
+                empty=true
+            fi
             ;;
-        r )
-			local date=$(eval "echo \$$OPTIND")
-			[[ $date =~ ^-.* || -z "$date" ]] && RESTORE="true" || RESTORE="$date"
-			action+=( $OPT )
+        -c ) options[c]=true
+            if [ "$2" = "--date" ]; then 
+                shift
+                [ "$2" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
+                DateClean="$2"
+                shift
+            elif [ "$2" = "--file" ]; then 
+                [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
+                FileClean=true
+                shift
+                until [[ $2 =~ ^-[dlrzciIvh]$ ]] || [[ -z "$2" ]] ; do
+                    ListFiles+=( "$2" )
+                    shift
+                done
+            else
+                empty=true
+            fi
             ;;
-        s )
-            SIZE=true
-			action+=( $OPT )
-            ;;
-        h )
-            HELP=true
-			action+=( $OPT )
-            ;;
-        v )
-            VERBOSE=true
-            ;;
-        w )
-            WAIT="${OPTARG}"
-            ;;
-        * )
-            die "invalid option -- '$OPTARG' \nTry '$name -h' for more information"
-            ;;
-        : )
-			die "option requires an argument -- '$OPTARG' \nTry '$name -h' for more information."
-            ;;
+        -s ) options[s]=true ;;
+        -i ) options[i]=true ;;
+        -I ) options[I]=true ;;
+        -v ) options[v]=true ;;
+        -h ) options[h]=true ;;
+        -V ) options[V]=true ;;
+        * ) die "Invalid option '$1'.\nTry '$name -h' for more informations." ;;
     esac
+    shift
 
 done
-
-shift $(($OPTIND - 1))
-
-# get all files even with spaces
-while read ; do
-    _list_+=( "$REPLY" )
-done < <(printf "%s\n" "$@")
 }
-#}}}
 
 #-------------------#
 # RUN MAIN FUNCTION #
-#-------------------#{{{
-main "$@"
-#}}}
+#-------------------#
+main_func "$@"
 
-#---------------#
-# DETECT ERRORS #
-#---------------#{{{
-[ ${#action[@]} -gt 1 ] && die "only one operation may be used at a time. \nTry: '$name -h' for more information"
-[ "$HELP" ]    	&& help      || true
-[ "$REMOVE" ]  	&& remove    || true
-[ "$LIST" ]    	&& list      || true
-[ "$CLEAN" ]   	&& clean     || true
-[ "$RESTORE" ] 	&& restore   || true
-[ "$SIZE" ]    	&& size      || true
-#}}}
-
+#-------------------#
+# EXEC USER OPTIONS #
+#-------------------#
+# i just this stupid thing to fix the remove commandfaild in prompt even when command succuss
+[ -z "${options[V]}" ] || printf "%s\n" "${name^} Version: $VERSION"
+[ -z "${options[d]}" ] || delete_func
+[ -z "${options[l]}" ] || list_func
+[ -z "${options[r]}" ] || restore_func
+[ -z "${options[c]}" ] || clean_func
+[ -z "${options[s]}" ] || size_func
+[ -z "${options[h]}" ] || help_func
