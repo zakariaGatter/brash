@@ -3,15 +3,15 @@
 #-------------#
 # SCRIPT NAME #
 #-------------#
-name="${0##*/}"
+declare -r name="${0##*/}"
 
 #-------------------#
 # GENERAL VARIABLES #
 #-------------------#
 declare -A options
 declare -u Answer
-error_count=0
-VERSION="0.1.0"
+declare -i error_count=0
+declare -r VERSION="0.1.0"
 
 #---------------------#
 # ENABLE BASH OPTIONS #
@@ -254,20 +254,6 @@ printf "\n"
 unset count DateClean DateCheck item line date file FileClean opt empty 
 }
 
-#-----------------------------------------#
-# LIST TRASH FILE INFO FOR RESTORE SELECT #
-#-----------------------------------------#
-ListItems(){
-for item in ${TrashInfos[@]}; do
-    while read line; do
-        [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
-        [ "${line%%=*}" = "PATH" ] && file=${line#*=}
-    done < $item
-    item="${item##*/}"
-    printf "'%s' '%s' OFF " "${item%.*}" "[${date/T/ }] ${file/$HOME/\~}"
-done
-}
-
 #-----------------------#
 # RESTORE DELETED FILES #
 #-----------------------#
@@ -329,6 +315,20 @@ elif [ "$empty" ]; then
 fi
 
 unset line empty DateList DateCheck item FileList opt
+}
+
+#-----------------------------------------#
+# LIST TRASH FILE INFO FOR RESTORE SELECT #
+#-----------------------------------------#
+ListItems(){
+for item in ${TrashInfos[@]}; do
+    while read line; do
+        [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
+        [ "${line%%=*}" = "PATH" ] && file=${line#*=}
+    done < $item
+    item="${item##*/}"
+    printf "'%s' '%s' OFF " "${item%.*}" "[${date/T/ }] ${file/$HOME/\~}"
+done
 }
 
 

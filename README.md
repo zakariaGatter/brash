@@ -8,6 +8,7 @@
 - [Using Brash](#using-brash)
 - [Examples](#examples)
 - [Help](#help-needed)
+- [License](#License)
 
 ## Why Brash
 
@@ -116,5 +117,12 @@ NOTE:
 
 ## Help Needed
 * Create a man page for [Brash]
+
+## License
+
+MIT License
+Copyright (c) 2019 Zakaria Barkouk
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
 [Brash]:http://github.com/zakariagatter/brash
