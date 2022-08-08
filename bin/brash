@@ -1,9 +1,10 @@
-#!/usr/bin/env bash 
+#!/usr/bin/env bash
 
 #-------------#
 # SCRIPT NAME #
 #-------------#
 declare -r name="${0##*/}"
+declare -r VERSION="0.1.0"
 
 #-------------------#
 # GENERAL VARIABLES #
@@ -11,7 +12,6 @@ declare -r name="${0##*/}"
 declare -A options
 declare -u Answer
 declare -i error_count=0
-declare -r VERSION="0.1.0"
 
 #---------------------#
 # ENABLE BASH OPTIONS #
@@ -35,7 +35,7 @@ while read -ra line ;do
     mount=${line[@]}
 
     if [ "$type" = "part" ]; then
-        if ! [[ $uuid =~ ${PUUID[@]} ]]; then 
+        if ! [[ $uuid =~ ${PUUID[@]} ]]; then
             [[ $mount =~ $PWD ]] && TRASH_PATH="$mount"
         fi
     fi
@@ -90,8 +90,8 @@ msg(){
 #---------------------#
 delete_func(){
 #check for I option
-if [ "${options[I]}" ] && [ -z "${options[i]}" ]; then 
-    if [ ${#ListFiles[@]} -gt 3 ]; then 
+if [ "${options[I]}" ] && [ -z "${options[i]}" ]; then
+    if [ ${#ListFiles[@]} -gt 3 ]; then
         printf "%s: %b" "${name^}" "Remove ${#ListFiles[*]} arguments recursively [Y/n]?"
         read -n1 -s Answer
         [ "$Answer" = "Y" ] || return 0
@@ -102,26 +102,26 @@ for file in ${ListFiles[@]}; do
     read full < <(realpath -s -- $file)
     FilePath="${full%/*}"
     FileName="${full##*/}"
-    
-    # check the giving file is exist 
-    if ! [[ -e $file ]]; then 
+
+    # check the giving file is exist
+    if ! [[ -e $file ]]; then
         ero "'$file' No such file or directory."
         continue
-    # check if you have the permission to manage it 
-    elif ! [[ -w $file ]]; then 
+    # check if you have the permission to manage it
+    elif ! [[ -w $file ]]; then
         ero "Can not Delete '$file' Permission denied"
         continue
     fi
 
     # check for i option
-    if [ "${options[i]}" ] && [ -z "${options[I]}" ]; then 
+    if [ "${options[i]}" ] && [ -z "${options[I]}" ]; then
         printf "%s: %b\r" "${name^}" "Remove '$FileName' arguments recursively [Y/n]?"
         read -n1 -s Answer
         [ "$Answer" = "Y" ] || continue
     fi
 
-    # if this a link manage it as so 
-    if [ -L "$file" ]; then 
+    # if this a link manage it as so
+    if [ -L "$file" ]; then
         unlink -- "$file"
         [ "${options[v]}" ] && msg "Unlinked '$file'"
         continue
@@ -132,8 +132,8 @@ for file in ${ListFiles[@]}; do
         FileName="${FileName}_"
     done
 
-    # move file to Trash 
-    if (mv -f -- "$full" $TRASH_FILE &> /dev/null); then 
+    # move file to Trash
+    if (mv -f -- "$full" $TRASH_FILE &> /dev/null); then
         printf "[Trash Info]\n"                  > "$TRASH_INFO/$FileName.trashinfo"
         printf "DeletionDate=%(%F)TT%(%T)T\n"   >> "$TRASH_INFO/$FileName.trashinfo"
         printf "PATH=%s\n" "$full"              >> "$TRASH_INFO/$FileName.trashinfo"
@@ -155,7 +155,7 @@ unset file full FilePath FileName
 list_func(){
 [ "${TrashInfos[*]}" ] || die "Empty Trash, No files to List"
 
-if [ "$DateList" ]; then 
+if [ "$DateList" ]; then
     (date --date="$DateList" +%F &> /dev/null) || die "invalid date '$DateList'.\nTry '$name -h' for more informations."
 
     read DateCheck < <(date --date="$DateList" +%F)
@@ -170,7 +170,7 @@ if [ "$DateList" ]; then
         unset file date
     done
 
-elif [ "$FileList" ]; then 
+elif [ "$FileList" ]; then
     msg "List Trash files By Name. "
 
     for opt in ${ListFiles[@]}; do
@@ -209,7 +209,7 @@ clean_func(){
 
 count=0
 
-if [ "$DateClean" ]; then 
+if [ "$DateClean" ]; then
     (date --date="$DateClean" +%F &> /dev/null) || die "invalid date '$DateClean'.\nTry '$name -h' for more informations."
 
     read DateCheck < <(date --date="$DateClean" +%F)
@@ -218,7 +218,7 @@ if [ "$DateClean" ]; then
         while read -r line; do
             [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
         done < "$item"
-        if [[ ${date/T} =~ $DateCheck ]]; then 
+        if [[ ${date/T} =~ $DateCheck ]]; then
             file="${item##*/}"
             rm -rf "$item" "$TRASH_FILE/${file%.*}"
             ((count++))
@@ -226,7 +226,7 @@ if [ "$DateClean" ]; then
             sleep 0.2
         fi
     done
-elif [ "$FileClean" ]; then 
+elif [ "$FileClean" ]; then
     for opt in ${ListFiles[@]}; do
         for item in ${TrashInfos[@]}; do
             while read -r line; do
@@ -241,7 +241,7 @@ elif [ "$FileClean" ]; then
             fi
         done
     done
-elif [ "$empty" ]; then 
+elif [ "$empty" ]; then
     for item in ${TrashFiles[@]} ;do
         rm -rf "$item" "$TRASH_INFO/${item##*/}.trashinfo"
         ((count++))
@@ -251,7 +251,7 @@ elif [ "$empty" ]; then
 fi
 printf "\n"
 
-unset count DateClean DateCheck item line date file FileClean opt empty 
+unset count DateClean DateCheck item line date file FileClean opt empty
 }
 
 #-----------------------#
@@ -260,7 +260,7 @@ unset count DateClean DateCheck item line date file FileClean opt empty
 restore_func(){
 [ "${TrashInfos[*]}" ] || die "Empty Trash, No files to Restore"
 
-if [ "$DateList" ]; then 
+if [ "$DateList" ]; then
     (date --date="$DateList" +%F &> /dev/null) || die "invalid date '$DateList'.\nTry '$name -h' for more informations."
 
     read DateCheck < <(date --date="$DateList" +%F)
@@ -270,7 +270,7 @@ if [ "$DateList" ]; then
             [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
             [ "${line%%=*}" = "PATH" ] && file=${line#*=}
         done < "$item"
-        if [[ ${date/T/ } =~ $DateCheck ]]; then 
+        if [[ ${date/T/ } =~ $DateCheck ]]; then
             while [ -e "$file" ]; do file="${file}_" ;done
 
             item="${item##*/}"
@@ -281,13 +281,13 @@ if [ "$DateList" ]; then
         unset file date
     done
 
-elif [ "$FileList" ]; then 
+elif [ "$FileList" ]; then
     for opt in ${ListFiles[@]}; do
         for item in ${TrashInfos[@]}; do
             while read -r line; do
                 [ "${line%%=*}" = "PATH" ] && file=${line#*=}
             done < "$item"
-            if [[ $file =~ $opt ]]; then 
+            if [[ $file =~ $opt ]]; then
                 while [ -e "$file" ]; do file="${file}_" ;done
 
                 item="${item##*/}"
@@ -390,7 +390,7 @@ HELP
 #---------------#
 main_func(){
 while [ "$1" ]; do
-    case "$1" in 
+    case "$1" in
         -d ) options[d]=true
             until [[ $2 =~ ^-[dlrzciIvh]$ ]] || [[ -z "$2" ]] ; do
                 ListFiles+=( "$2" )
@@ -398,12 +398,12 @@ while [ "$1" ]; do
             done
             ;;
         -l ) options[l]=true
-            if [ "$2" = "--date" ]; then 
+            if [ "$2" = "--date" ]; then
                 shift
                 [ "$2" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
                 DateList="$2"
                 shift
-            elif [ "$2" = "--file" ]; then 
+            elif [ "$2" = "--file" ]; then
                 [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
                 FileList=true
                 shift
@@ -416,12 +416,12 @@ while [ "$1" ]; do
             fi
             ;;
         -r ) options[r]=true
-            if [ "$2" = "--date" ]; then 
+            if [ "$2" = "--date" ]; then
                 shift
                 [ "$2" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
                 DateRestore="$2"
                 shift
-            elif [ "$2" = "--file" ]; then 
+            elif [ "$2" = "--file" ]; then
                 [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
                 FileRestore=true
                 shift
@@ -434,12 +434,12 @@ while [ "$1" ]; do
             fi
             ;;
         -c ) options[c]=true
-            if [ "$2" = "--date" ]; then 
+            if [ "$2" = "--date" ]; then
                 shift
                 [ "$2" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
                 DateClean="$2"
                 shift
-            elif [ "$2" = "--file" ]; then 
+            elif [ "$2" = "--file" ]; then
                 [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
                 FileClean=true
                 shift
@@ -473,10 +473,10 @@ main_func "$@"
 # EXEC USER OPTIONS #
 #-------------------#
 # i just this stupid thing to fix the remove commandfaild in prompt even when command succuss
-[ -z "${options[V]}" ] || printf "%s\n" "${name^} Version: $VERSION"
 [ -z "${options[d]}" ] || delete_func
 [ -z "${options[l]}" ] || list_func
 [ -z "${options[r]}" ] || restore_func
 [ -z "${options[c]}" ] || clean_func
 [ -z "${options[s]}" ] || size_func
 [ -z "${options[h]}" ] || help_func
+[ -z "${options[V]}" ] || printf "%s\n" "${name^} Version: $VERSION"
