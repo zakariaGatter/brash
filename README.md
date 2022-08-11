@@ -79,6 +79,12 @@ NOTE:
     See: 'man date' for more information.
 ```
 
+## Preview
+![List](./preview/list.png)
+![Verbose](./preview/verbose.png)
+![Restore](./preview/restore.png)
+
+
 ## Examples
 
 * Delete file or Directory (Add '-v' for verbose)
