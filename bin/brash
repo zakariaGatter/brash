@@ -392,7 +392,7 @@ main_func(){
 while [ "$1" ]; do
     case "$1" in
         -d ) options[d]=true
-            until [[ $2 =~ ^-[dlrzciIvh]$ ]] || [[ -z "$2" ]] ; do
+            until [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]] ; do
                 ListFiles+=( "$2" )
                 shift
             done
@@ -407,7 +407,7 @@ while [ "$1" ]; do
                 [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
                 FileList=true
                 shift
-                until [[ $2 =~ ^-[dlrzciIvh]$ ]] || [[ -z "$2" ]] ; do
+                until [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]] ; do
                     ListFiles+=( "$2" )
                     shift
                 done
@@ -425,7 +425,7 @@ while [ "$1" ]; do
                 [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
                 FileRestore=true
                 shift
-                until [[ $2 =~ ^-[dlrzciIvh]$ ]] || [[ -z "$2" ]] ; do
+                until [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]] ; do
                     ListFiles+=( "$2" )
                     shift
                 done
@@ -443,7 +443,7 @@ while [ "$1" ]; do
                 [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
                 FileClean=true
                 shift
-                until [[ $2 =~ ^-[dlrzciIvh]$ ]] || [[ -z "$2" ]] ; do
+                until [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]] ; do
                     ListFiles+=( "$2" )
                     shift
                 done
@@ -479,4 +479,4 @@ main_func "$@"
 [ -z "${options[c]}" ] || clean_func
 [ -z "${options[s]}" ] || size_func
 [ -z "${options[h]}" ] || help_func
-[ -z "${options[V]}" ] || printf "%s\n" "${name^} Version: $VERSION"
+[ -z "${options[V]}" ] || printf "%s\n" "${name^} Version: $VERSION (MIT Licence)"
