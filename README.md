@@ -1,4 +1,4 @@
-# Brash
+# Brash V0.1.0
 
 ## Table of Contents
 
@@ -46,6 +46,7 @@ So why not ?
 
 	``` bash
 	git clone https://github.com/zakariaGatter/brash.git ~/brash
+    git checkout tags/v0.1.0
 	mkdir -p ~/.local/bin
 	cp ~/brash/bin/brash ~/.local/bin
 	chmod +x ~/.local/bin/brash

@@ -472,7 +472,6 @@ main_func "$@"
 #-------------------#
 # EXEC USER OPTIONS #
 #-------------------#
-# i just this stupid thing to fix the remove commandfaild in prompt even when command succuss
 [ -z "${options[d]}" ] || delete_func
 [ -z "${options[l]}" ] || list_func
 [ -z "${options[r]}" ] || restore_func
