@@ -46,9 +46,10 @@ So why not ?
 
 	``` bash
 	git clone https://github.com/zakariaGatter/brash.git ~/brash
+    cd ~/brash
     git checkout tags/v0.1.0
 	mkdir -p ~/.local/bin
-	cp ~/brash/bin/brash ~/.local/bin
+	cp bin/brash ~/.local/bin
 	chmod +x ~/.local/bin/brash
 	```
 
