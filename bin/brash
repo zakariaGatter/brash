@@ -98,17 +98,17 @@ if [ "${options[I]}" ] && [ -z "${options[i]}" ]; then
     fi
 fi
 
-for file in ${ListFiles[@]}; do
-    read full < <(realpath -s -- $file)
+for file in "${ListFiles[@]}"; do
+    read full < <(realpath -s -- "$file")
     FilePath="${full%/*}"
     FileName="${full##*/}"
 
     # check the giving file is exist
-    if ! [[ -e $file ]]; then
+    if ! [[ -e "$file" ]]; then
         ero "'$file' No such file or directory."
         continue
     # check if you have the permission to manage it
-    elif ! [[ -w $file ]]; then
+    elif ! [[ -w "$file" ]]; then
         ero "Can not Delete '$file' Permission denied"
         continue
     fi
@@ -161,7 +161,7 @@ if [ "$DateList" ]; then
     read DateCheck < <(date --date="$DateList" +%F)
     msg "List Trash files By Date."
 
-    for item in ${TrashInfos[@]}; do
+    for item in "${TrashInfos[@]}"; do
         while read -r line; do
             [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
             [ "${line%%=*}" = "PATH" ] && file=${line#*=}
@@ -173,8 +173,8 @@ if [ "$DateList" ]; then
 elif [ "$FileList" ]; then
     msg "List Trash files By Name. "
 
-    for opt in ${ListFiles[@]}; do
-        for item in ${TrashInfos[@]}; do
+    for opt in "${ListFiles[@]}"; do
+        for item in "${TrashInfos[@]}"; do
             while read -r line; do
                 [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
                 [ "${line%%=*}" = "PATH" ] && file=${line#*=}
@@ -187,7 +187,7 @@ elif [ "$FileList" ]; then
 elif [ "$empty" ]; then
     msg "List All Trash files"
 
-    for item in ${TrashInfos[@]}; do
+    for item in "${TrashInfos[@]}"; do
         while read -r line; do
             [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
             [ "${line%%=*}" = "PATH" ] && file=${line#*=}
@@ -214,7 +214,7 @@ if [ "$DateClean" ]; then
 
     read DateCheck < <(date --date="$DateClean" +%F)
 
-    for item in ${TrashInfos[@]}; do
+    for item in "${TrashInfos[@]}"; do
         while read -r line; do
             [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
         done < "$item"
@@ -227,8 +227,8 @@ if [ "$DateClean" ]; then
         fi
     done
 elif [ "$FileClean" ]; then
-    for opt in ${ListFiles[@]}; do
-        for item in ${TrashInfos[@]}; do
+    for opt in "${ListFiles[@]}"; do
+        for item in "${TrashInfos[@]}"; do
             while read -r line; do
                 [ "${line%%=*}" = "PATH" ] && file=${line#*=}
             done < "$item"
@@ -265,7 +265,7 @@ if [ "$DateList" ]; then
 
     read DateCheck < <(date --date="$DateList" +%F)
 
-    for item in ${TrashInfos[@]}; do
+    for item in "${TrashInfos[@]}"; do
         while read -r line; do
             [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
             [ "${line%%=*}" = "PATH" ] && file=${line#*=}
@@ -282,8 +282,8 @@ if [ "$DateList" ]; then
     done
 
 elif [ "$FileList" ]; then
-    for opt in ${ListFiles[@]}; do
-        for item in ${TrashInfos[@]}; do
+    for opt in "${ListFiles[@]}"; do
+        for item in "${TrashInfos[@]}"; do
             while read -r line; do
                 [ "${line%%=*}" = "PATH" ] && file=${line#*=}
             done < "$item"
@@ -321,11 +321,11 @@ unset line empty DateList DateCheck item FileList opt
 # LIST TRASH FILE INFO FOR RESTORE SELECT #
 #-----------------------------------------#
 ListItems(){
-for item in ${TrashInfos[@]}; do
+for item in "${TrashInfos[@]}"; do
     while read line; do
         [ "${line%%=*}" = "DeletionDate" ] && date=${line#*=}
         [ "${line%%=*}" = "PATH" ] && file=${line#*=}
-    done < $item
+    done < "$item"
     item="${item##*/}"
     printf "'%s' '%s' OFF " "${item%.*}" "[${date/T/ }] ${file/$HOME/\~}"
 done
