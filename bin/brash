@@ -362,8 +362,8 @@ ${name^}-$VERSION: Cli Trash Manager in Pure Bash
 USAGE: $name [OPTIONS] ... files ...
 
 OPTIONS:
-  -d <files>    Move to Trash giving files
-  -r            Restore File and Directories from Trash
+  -d <files>    Move to Trash the giving files
+  -r            Restore Files and Directories from Trash
   -l            List of Deleted files
   -c            Clean Trash Bin
     --date      Sort the Resoult by Date
