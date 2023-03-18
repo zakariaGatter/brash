@@ -260,7 +260,7 @@ unset count DateClean DateCheck item line date file FileClean opt empty
 restore_func(){
 [ "${TrashInfos[*]}" ] || die "Empty Trash, No files to Restore"
 
-if [ "$DateList" ]; then
+if [ "$DateRestore" ]; then
     (date --date="$DateList" +%F &> /dev/null) || die "invalid date '$DateList'."
 
     read DateCheck < <(date --date="$DateList" +%F)
@@ -275,13 +275,14 @@ if [ "$DateList" ]; then
 
             item="${item##*/}"
             item="${item%.*}"
-            mv -rf "$TRASH_FILE/$item" "$file"
+            mv -f "$TRASH_FILE/$item" "$file"
+            rm "$TRASH_INFO/$item.trashinfo"
             [ "${options[v]}" ] && msg "Restored '$file'"
         fi
         unset file date
     done
 
-elif [ "$FileList" ]; then
+elif [ "$FileRestore" ]; then
     for opt in "${ListFiles[@]}"; do
         for item in "${TrashInfos[@]}"; do
             while read -r line; do
@@ -292,7 +293,8 @@ elif [ "$FileList" ]; then
 
                 item="${item##*/}"
                 item="${item%.*}"
-                mv -rf "$TRASH_FILE/$item" "$file"
+                mv -f "$TRASH_FILE/$item" "$file"
+                rm "$TRASH_INFO/$item.trashinfo"
                 [ "${options[v]}" ] && msg "Restored '$file'"
             fi
             unset file date
@@ -309,7 +311,8 @@ elif [ "$empty" ]; then
 
         while [ -e "$file" ]; do file="${file}_" ;done
 
-        mv -rf "$TRASH_FILE/$item" "$file"
+        mv -f "$TRASH_FILE/$item" "$file"
+        rm "$TRASH_INFO/$item.trashinfo"
         [ "${options[v]}" ] && msg "Restored '$file'"
     done
 fi
