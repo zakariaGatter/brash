@@ -66,7 +66,7 @@ TrashInfos=( $TRASH_INFO/* )
 # ERROR MSG WITH EXIT #
 #---------------------#
 die(){
-    printf "%s: %b\n" "${name^}" "$@" >&2
+    printf "%s: %b\n" "${name^}" "$@\nTry '$name -h' for more information." >&2
     exit 2
 }
 
@@ -156,7 +156,7 @@ list_func(){
 [ "${TrashInfos[*]}" ] || die "Empty Trash, No files to List"
 
 if [ "$DateList" ]; then
-    (date --date="$DateList" +%F &> /dev/null) || die "invalid date '$DateList'.\nTry '$name -h' for more informations."
+    (date --date="$DateList" +%F &> /dev/null) || die "invalid date '$DateList'."
 
     read DateCheck < <(date --date="$DateList" +%F)
     msg "List Trash files By Date."
@@ -210,7 +210,7 @@ clean_func(){
 count=0
 
 if [ "$DateClean" ]; then
-    (date --date="$DateClean" +%F &> /dev/null) || die "invalid date '$DateClean'.\nTry '$name -h' for more informations."
+    (date --date="$DateClean" +%F &> /dev/null) || die "invalid date '$DateClean'."
 
     read DateCheck < <(date --date="$DateClean" +%F)
 
@@ -261,7 +261,7 @@ restore_func(){
 [ "${TrashInfos[*]}" ] || die "Empty Trash, No files to Restore"
 
 if [ "$DateList" ]; then
-    (date --date="$DateList" +%F &> /dev/null) || die "invalid date '$DateList'.\nTry '$name -h' for more informations."
+    (date --date="$DateList" +%F &> /dev/null) || die "invalid date '$DateList'."
 
     read DateCheck < <(date --date="$DateList" +%F)
 
@@ -398,10 +398,10 @@ while getopts ':dlrcsiIvhV' OPT ; do
             ;;
         l ) options[l]=true
             if [ "$2" = "--date" ]; then
-                [ "$3" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
+                [ "$3" ] || die "Option require a argument -- 'date'."
                 DateList="$3" && shift
             elif [ "$2" = "--file" ]; then
-                [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
+                [ "$3" ] || die "Option require a argument -- 'file'."
                 FileList=true && shift
                 if [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]]; then
                     continue
@@ -412,10 +412,10 @@ while getopts ':dlrcsiIvhV' OPT ; do
             ;;
         r ) options[r]=true
             if [ "$2" = "--date" ]; then
-                [ "$3" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
+                [ "$3" ] || die "Option require a argument -- 'date'."
                 DateRestore="$3" && shift
             elif [ "$2" = "--file" ]; then
-                [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
+                [ "$3" ] || die "Option require a argument -- 'file'."
                 FileRestore=true && shift
                 if [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]]; then
                     continue
@@ -426,10 +426,10 @@ while getopts ':dlrcsiIvhV' OPT ; do
             ;;
         c ) options[c]=true
             if [ "$2" = "--date" ]; then
-                [ "$3" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
+                [ "$3" ] || die "Option require a argument -- 'date'."
                 DateClean="$3" && shift
             elif [ "$2" = "--file" ]; then
-                [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
+                [ "$3" ] || die "Option require a argument -- 'file'."
                 FileClean=true && shift
                 if [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]]; then
                     continue
@@ -444,8 +444,8 @@ while getopts ':dlrcsiIvhV' OPT ; do
         v ) options[v]=true ;;
         h ) options[h]=true ;;
         V ) options[V]=true ;;
-        : ) die "Missing Operand.\nTry '$name -h' for more informations." ;;
-        ? ) die "Invalid option '$1'.\nTry '$name -h' for more informations." ;;
+        : ) die "Missing Operand." ;;
+        ? ) die "Invalid option '$1'." ;;
     esac
     shift $((OPTIND-1))
 done
