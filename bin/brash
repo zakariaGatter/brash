@@ -389,79 +389,70 @@ HELP
 # MAIN FUNCTION #
 #---------------#
 main_func(){
-while [ "$1" ]; do
-    case "$1" in
-        -d ) options[d]=true
-            until [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]] ; do
-                ListFiles+=( "$2" )
-                shift
-            done
+while getopts ':dlrcsiIvhV' OPT ; do
+    case "$OPT" in
+        d ) options[d]=true
+            if [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]] ; then
+                continue
+            fi
             ;;
-        -l ) options[l]=true
+        l ) options[l]=true
             if [ "$2" = "--date" ]; then
-                shift
-                [ "$2" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
-                DateList="$2"
-                shift
+                [ "$3" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
+                DateList="$3" && shift
             elif [ "$2" = "--file" ]; then
                 [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
-                FileList=true
-                shift
-                until [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]] ; do
-                    ListFiles+=( "$2" )
-                    shift
-                done
+                FileList=true && shift
+                if [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]]; then
+                    continue
+                fi
             else
                 empty=true
             fi
             ;;
-        -r ) options[r]=true
+        r ) options[r]=true
             if [ "$2" = "--date" ]; then
-                shift
-                [ "$2" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
-                DateRestore="$2"
-                shift
+                [ "$3" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
+                DateRestore="$3" && shift
             elif [ "$2" = "--file" ]; then
                 [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
-                FileRestore=true
-                shift
-                until [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]] ; do
-                    ListFiles+=( "$2" )
-                    shift
-                done
+                FileRestore=true && shift
+                if [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]]; then
+                    continue
+                fi
             else
                 empty=true
             fi
             ;;
-        -c ) options[c]=true
+        c ) options[c]=true
             if [ "$2" = "--date" ]; then
-                shift
-                [ "$2" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
-                DateClean="$2"
-                shift
+                [ "$3" ] || die "Option require a argument -- 'date'.\nTry '$name -h' for more informations."
+                DateClean="$3" && shift
             elif [ "$2" = "--file" ]; then
                 [ "$3" ] || die "Option require a argument -- 'file'.\nTry '$name -h' for more informations."
-                FileClean=true
-                shift
-                until [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]] ; do
-                    ListFiles+=( "$2" )
-                    shift
-                done
+                FileClean=true && shift
+                if [[ $2 =~ ^-[dlrcsiIvhV]$ ]] || [[ -z "$2" ]]; then
+                    continue
+                fi
             else
                 empty=true
             fi
             ;;
-        -s ) options[s]=true ;;
-        -i ) options[i]=true ;;
-        -I ) options[I]=true ;;
-        -v ) options[v]=true ;;
-        -h ) options[h]=true ;;
-        -V ) options[V]=true ;;
-        * ) die "Invalid option '$1'.\nTry '$name -h' for more informations." ;;
+        s ) options[s]=true ;;
+        i ) options[i]=true ;;
+        I ) options[I]=true ;;
+        v ) options[v]=true ;;
+        h ) options[h]=true ;;
+        V ) options[V]=true ;;
+        : ) die "Missing Operand.\nTry '$name -h' for more informations." ;;
+        ? ) die "Invalid option '$1'.\nTry '$name -h' for more informations." ;;
     esac
-    shift
-
+    shift $((OPTIND-1))
 done
+
+    for file in "$@"; do
+        ListFiles+=( "$file" )
+    done
 }
 
 #-------------------#
