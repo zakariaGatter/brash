@@ -4,7 +4,15 @@
 # SCRIPT NAME #
 #-------------#
 declare -r name="${0##*/}"
-declare -r VERSION="0.1.0"
+declare -r VERSION="0.1.2"
+
+#-----------------------------------------#
+# BEFORE START CHECK IF DIALOG IS INSTALL #
+#-----------------------------------------#
+if ! command -v dialog &> /dev/null ; then
+    printf "%b\n" "${name^}: Needs 'dialog' to use Restore and Clean option." >&2
+    exit 2
+fi
 
 #-------------------#
 # GENERAL VARIABLES #
