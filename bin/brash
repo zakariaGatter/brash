@@ -161,7 +161,7 @@ unset file full FilePath FileName
 # LIST TRASH FILES #
 #------------------#
 list_func(){
-[ "${TrashInfos[*]}" ] || die "Empty Trash, No files to List"
+[ "${TrashInfos[*]}" ] || printf "%s\n" "Empty Trash, No files to List" >&2
 
 if [ "$DateList" ]; then
     (date --date="$DateList" +%F &> /dev/null) || die "invalid date '$DateList'."
@@ -213,7 +213,7 @@ unset line empty DateList DateCheck item FileList opt
 # CLEAN TRASH #
 #-------------#
 clean_func(){
-[ "${TrashInfos[*]}" ] || die "Empty Trash, No files or Directories to Clean"
+[ "${TrashInfos[*]}" ] || printf "%s\n" "Empty Trash, No files or Directories to Clean" >&2
 
 count=0
 
@@ -250,7 +250,7 @@ elif [ "$FileClean" ]; then
         done
     done
 elif [ "$empty" ]; then
-    for item in ${TrashFiles[@]} ;do
+    for item in "${TrashFiles[@]}" ;do
         rm -rf "$item" "$TRASH_INFO/${item##*/}.trashinfo"
         ((count++))
         printf "Cleaning: %s Item(s)\r" "$count"
@@ -347,11 +347,11 @@ done
 # GET TRASH SIZE #
 #----------------#
 size_func(){
-[ "${TrashInfos[*]}" ] || die "Empty Trash, No files Directories to Weight"
+[ "${TrashInfos[*]}" ] || printf "%s\n" "Empty Trash, No files Directories to Weight" >&2
 
 count=0
 
-for item in ${TrashFiles[@]}; do
+for item in "${TrashFiles[@]}"; do
     ((count++))
     read -r size < <(du -hcs $TRASH_FILE | awk '/total$/{print $1}')
     printf "Size [%s], Files [%s]\r" "$size" "$count"
@@ -455,8 +455,8 @@ while getopts ':dlrcsiIvhV' OPT ; do
         v ) options[v]=true ;;
         h ) options[h]=true ;;
         V ) options[V]=true ;;
-        : ) die "Missing Operand." ;;
-        ? ) die "Invalid option '$1'." ;;
+        : ) die "'-$OPTARG' Missing Operand." ;;
+        ? ) die "Invalid option -- '-$OPTARG'." ;;
     esac
     shift $((OPTIND-1))
 done
