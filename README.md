@@ -1,4 +1,4 @@
-# Brash V0.1.0
+# Brash V0.1.2
 
 ## Table of Contents
 
@@ -12,7 +12,7 @@
 
 ## Why Brash
 
-Well, why not. As you see its similar to [Trash_cli](https://github.com/andreafrancia/trash-cli). Unlike Trash_cli, [Brash] don't Depends on any Python libs just pure bash.
+Well, why not. As you see its similar to [Trash_cli](https://github.com/andreafrancia/trash-cli). Unlike Trash_cli, [Brash] don't Depends on any Python libs just Bash Scripting.
 
 So why not ?
 
@@ -47,7 +47,7 @@ So why not ?
 	``` bash
 	git clone https://github.com/zakariaGatter/brash.git ~/brash
     cd ~/brash
-    git checkout tags/v0.1.0
+    git checkout tags/v0.1.2
 	mkdir -p ~/.local/bin
 	cp bin/brash ~/.local/bin
 	chmod +x ~/.local/bin/brash
@@ -56,12 +56,12 @@ So why not ?
 ## Using Brash
 
 ```
-Brash-0.1.0: Cli Trash Manager in Pure Bash
+Brash-0.1.2: Cli Trash Manager in Pure Bash
 USAGE: brash [OPTIONS] ... files ...
 
 OPTIONS:
-  -d <files>    Move to Trash giving files
-  -r            Restore File and Directories from Trash
+  -d <files>    Move to Trash the giving files
+  -r            Restore Files and Directories from Trash
   -l            List of Deleted files
   -c            Clean Trash Bin
     --date      Sort the Resoult by Date
@@ -69,16 +69,16 @@ OPTIONS:
   -s            Calculate Trash size
   -i            Ask before every remove
   -I            Ask once before removing more than three files
-  -v            Explaine what's been done
+  -v            Explaine what been done
   -h            Display this help dialog
   -V            Display Version
 
 NOTE:
-  Options
-    (--date/--file) options work only with -c,-l,-r Main Options
-
   Format for '--date' option is (YYYY-MM-DD) or human readable date string
     See: 'man date' for more information.
+
+  Options
+    (--date/--file) options work only with -c,-l,-r Main Options
 ```
 
 ## Preview
@@ -94,7 +94,7 @@ NOTE:
     $ brash -d EX
     $ brash -d EX*
     $ brash -d EX/*
-    $ brash -d EX/[A-Z]*
+    $ brash -dv EX/[A-Z]*
     ```
 
 * Restore file from Trash (Add '-v' for verbose)
